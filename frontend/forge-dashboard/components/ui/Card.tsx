@@ -8,13 +8,13 @@ interface CardProps {
 
 export default function Card({ title, children, className = '' }: CardProps) {
   return (
-    <div className={`bg-forge-surface rounded-xl border border-forge-border shadow-xl shadow-black/20 ${className}`}>
+    <div className={`bg-white rounded-[24px] border border-forge-border shadow-sm hover:shadow-xl hover:shadow-forge-primary/5 transition-all duration-300 ${className}`}>
       {title && (
-        <div className="px-6 py-4 border-b border-forge-border">
-          <h3 className="text-base font-semibold text-white">{title}</h3>
+        <div className="px-6 py-5 border-b border-forge-border">
+          <h3 className="text-lg font-bold text-forge-text tracking-tight">{title}</h3>
         </div>
       )}
-      <div className="p-6">{children}</div>
+      <div className="p-6 md:p-8">{children}</div>
     </div>
   )
 }

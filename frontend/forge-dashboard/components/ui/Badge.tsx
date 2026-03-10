@@ -5,17 +5,17 @@ interface BadgeProps {
 const badgeConfig: Record<string, { label: string; classes: string; dot: string }> = {
   success: {
     label: 'Active',
-    classes: 'bg-green-500/10 text-green-400 border-green-500/20',
+    classes: 'bg-green-50 text-green-700 border-green-200',
     dot: 'bg-green-500',
   },
   pending: {
     label: 'Pending',
-    classes: 'bg-forge-accent/10 text-forge-accent border-forge-accent/20',
-    dot: 'bg-forge-accent',
+    classes: 'bg-indigo-50 text-forge-primary border-indigo-200',
+    dot: 'bg-forge-primary',
   },
   failed: {
     label: 'Failed',
-    classes: 'bg-red-500/10 text-red-400 border-red-500/20',
+    classes: 'bg-red-50 text-red-700 border-red-200',
     dot: 'bg-red-500',
   },
 }

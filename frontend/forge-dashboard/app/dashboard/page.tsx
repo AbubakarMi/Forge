@@ -81,9 +81,9 @@ export default function DashboardPage() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
         </svg>
       ),
-      color: 'bg-green-500',
-      bg: 'bg-green-500/10',
-      text: 'text-green-400',
+      color: 'bg-green-600',
+      bg: 'bg-green-50',
+      text: 'text-green-600',
     },
     {
       label: 'Pending Payouts',
@@ -94,8 +94,8 @@ export default function DashboardPage() {
         </svg>
       ),
       color: 'bg-forge-accent',
-      bg: 'bg-forge-accent/10',
-      text: 'text-forge-accent',
+      bg: 'bg-indigo-50',
+      text: 'text-forge-primary',
     },
     {
       label: 'Total Volume',
@@ -106,36 +106,36 @@ export default function DashboardPage() {
         </svg>
       ),
       color: 'bg-forge-secondary',
-      bg: 'bg-forge-secondary/10',
+      bg: 'bg-purple-50',
       text: 'text-forge-secondary',
     },
   ]
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-8">
       {/* Page Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white">Overview</h1>
-        <p className="text-forge-muted mt-1">Welcome back. Here&apos;s what&apos;s happening with your API.</p>
+        <h1 className="text-3xl font-black text-forge-text tracking-tight">Overview</h1>
+        <p className="text-forge-muted mt-1 font-medium">Welcome back. Here&apos;s what&apos;s happening with your API infrastructure.</p>
       </div>
 
       {/* Error */}
       {error && (
-        <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg text-sm">
+        <div className="bg-red-50 border border-red-200 text-red-600 px-6 py-4 rounded-2xl font-medium shadow-sm">
           {error}
         </div>
       )}
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {summaryCards.map((card, i) => (
-          <Card key={i}>
+          <Card key={i} className="hover:translate-y-[-4px] transition-all duration-300">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm text-forge-muted font-medium">{card.label}</p>
-                <p className="text-3xl font-bold text-white mt-1">{card.value}</p>
+                <p className="text-sm text-forge-muted font-bold uppercase tracking-widest">{card.label}</p>
+                <p className="text-3xl font-black text-forge-text mt-2">{card.value}</p>
               </div>
-              <div className={`${card.bg} ${card.text} w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform duration-200 hover:scale-110`}>
+              <div className={`${card.bg} ${card.text} w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm border border-forge-border group-hover:scale-110 transition-all`}>
                 {card.icon}
               </div>
             </div>
@@ -144,48 +144,57 @@ export default function DashboardPage() {
       </div>
 
       {/* Recent Transactions */}
-      <Card title="Recent Transactions">
+      <Card title="Recent Transactions" className="shadow-sm">
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <svg className="animate-spin w-6 h-6 text-forge-primary" fill="none" viewBox="0 0 24 24">
+          <div className="flex items-center justify-center py-20">
+            <svg className="animate-spin w-8 h-8 text-forge-primary" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
           </div>
         ) : recentTransactions.length === 0 ? (
-          <div className="text-center py-12">
-            <svg className="w-12 h-12 text-forge-surface mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-            <p className="text-forge-muted text-sm">No transactions yet.</p>
+          <div className="text-center py-20 px-6">
+            <div className="w-16 h-16 bg-forge-surface rounded-full flex items-center justify-center mx-auto mb-4 border border-forge-border">
+              <svg className="w-8 h-8 text-forge-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            </div>
+            <p className="text-forge-text font-bold text-lg">No transactions yet.</p>
+            <p className="text-forge-muted mt-1">Start using the API to see data appearing here.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-forge-border">
-                  <th className="text-left text-forge-muted font-medium pb-3 pr-4">ID</th>
-                  <th className="text-left text-forge-muted font-medium pb-3 pr-4">Amount</th>
-                  <th className="text-left text-forge-muted font-medium pb-3 pr-4">Currency</th>
-                  <th className="text-left text-forge-muted font-medium pb-3 pr-4">Status</th>
-                  <th className="text-left text-forge-muted font-medium pb-3">Date</th>
+                  <th className="text-left text-forge-muted font-bold uppercase tracking-wider text-[11px] pb-4 pr-4">ID</th>
+                  <th className="text-left text-forge-muted font-bold uppercase tracking-wider text-[11px] pb-4 pr-4">Amount</th>
+                  <th className="text-left text-forge-muted font-bold uppercase tracking-wider text-[11px] pb-4 pr-4">Currency</th>
+                  <th className="text-left text-forge-muted font-bold uppercase tracking-wider text-[11px] pb-4 pr-4">Status</th>
+                  <th className="text-left text-forge-muted font-bold uppercase tracking-wider text-[11px] pb-4">Date</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-forge-border/50">
+              <tbody className="divide-y divide-forge-border/30">
                 {recentTransactions.map((tx) => (
-                  <tr key={tx.id} className="hover:bg-white/5 transition-colors group">
-                    <td className="py-3 pr-4 font-mono text-forge-muted group-hover:text-forge-text transition-colors">
-                      {tx.id.length > 12 ? `${tx.id.slice(0, 8)}...` : tx.id}
+                  <tr key={tx.id} className="hover:bg-forge-surface/50 transition-colors group">
+                    <td className="py-5 pr-4">
+                      <span className="font-mono text-xs bg-forge-surface text-forge-text px-2 py-1 rounded border border-forge-border">
+                        {tx.id.length > 12 ? `${tx.id.slice(0, 8)}...` : tx.id}
+                      </span>
                     </td>
-                    <td className="py-3 pr-4 font-semibold text-white">
+                    <td className="py-5 pr-4 font-black text-forge-text text-base">
                       ${tx.amount.toFixed(2)}
                     </td>
-                    <td className="py-3 pr-4 text-forge-muted uppercase group-hover:text-forge-text transition-colors">{tx.currency}</td>
-                    <td className="py-3 pr-4">
+                    <td className="py-5 pr-4 text-forge-muted font-bold uppercase tracking-tight group-hover:text-forge-text transition-colors">{tx.currency}</td>
+                    <td className="py-5 pr-4">
                       <Badge status={tx.status as 'success' | 'pending' | 'failed'} />
                     </td>
-                    <td className="py-3 text-forge-muted group-hover:text-forge-text transition-colors">
-                      {new Date(tx.createdAt).toLocaleDateString()}
+                    <td className="py-5 text-forge-muted font-medium group-hover:text-forge-text transition-colors">
+                      {new Date(tx.createdAt).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}
                     </td>
                   </tr>
                 ))}

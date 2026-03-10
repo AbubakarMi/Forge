@@ -10,13 +10,13 @@ const config: Config = {
       colors: {
         forge: {
           primary: "#4F46E5",
-          secondary: "#7C3AED",
-          accent: "#F97316",
-          background: "#0F172A",
-          surface: "#1E293B",
-          border: "#334155",
-          text: "#F8FAFC",
-          muted: "#94A3B8"
+          accent: "#4F46E5",
+          background: "#FFFFFF",
+          surface: "#F8FAFC",
+          border: "#E2E8F0",
+          text: "#0F172A",
+          muted: "#64748B",
+          secondary: "#7C3AED", // Keep a secondary for variety
         }
       },
     },
