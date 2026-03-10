@@ -1,0 +1,31 @@
+# IDE
+.vs/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Node
+node_modules/
+
+# .NET
+bin/
+obj/
+*.user
+
+# Next.js
+.next/
+out/
+
+# Logs
+*.log
+npm-debug.log*
