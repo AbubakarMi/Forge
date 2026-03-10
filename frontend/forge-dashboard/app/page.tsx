@@ -1,285 +1,794 @@
-import Link from 'next/link'
-import Image from 'next/image'
+"use client";
 
-export default function HomePage() {
+import React, { useState, useEffect, useRef } from "react";
+import Link from "next/link";
+import { motion, useInView, useScroll, useTransform } from "framer-motion";
+import {
+  Zap,
+  Shield,
+  Globe,
+  Code2,
+  ArrowRight,
+  CheckCircle2,
+  ChevronRight,
+  Wallet,
+  Activity,
+  Terminal,
+  Lock,
+  ArrowUpRight,
+  RefreshCw,
+  Copy,
+  Plus,
+  CreditCard,
+  BarChart3,
+  Clock,
+  Sparkles,
+  Menu,
+  X,
+} from "lucide-react";
+
+// ═══════════════════════════════════════════════════════════════
+// ANIMATED COUNTER HOOK
+// ═══════════════════════════════════════════════════════════════
+function useCounter(end: number, duration: number = 2000) {
+  const [count, setCount] = useState(0);
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-100px" });
+  const started = useRef(false);
+
+  useEffect(() => {
+    if (!inView || started.current) return;
+    started.current = true;
+    const startTime = Date.now();
+    const tick = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setCount(Math.floor(eased * end));
+      if (progress < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, [inView, end, duration]);
+
+  return { count, ref };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TYPING CODE ANIMATION
+// ═══════════════════════════════════════════════════════════════
+function TypingCode() {
+  const [copied, setCopied] = useState(false);
+  const [visibleLines, setVisibleLines] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-50px" });
+
+  const codeLines = [
+    { num: 1, text: 'import Forge from ', highlight: "'@forge/sdk'", end: ";" },
+    { num: 2, text: '', highlight: '', end: '' },
+    { num: 3, text: 'const forge = new Forge(', highlight: "'fg_live_9921'", end: ");" },
+    { num: 4, text: '', highlight: '', end: '' },
+    { num: 5, text: 'const payout = await forge.payouts.create({', highlight: '', end: '' },
+    { num: 6, text: '  amount: ', highlight: '2_500_000', end: ',' },
+    { num: 7, text: '  currency: ', highlight: "'NGN'", end: ',' },
+    { num: 8, text: '  recipient: ', highlight: "'acct_dev_88'", end: ',' },
+    { num: 9, text: '  narration: ', highlight: "'Invoice #1042'", end: '' },
+    { num: 10, text: '});', highlight: '', end: '' },
+    { num: 11, text: '', highlight: '', end: '' },
+    { num: 12, text: 'console.log(payout.status);', highlight: " // 'completed'", end: '' },
+  ];
+
+  useEffect(() => {
+    if (!inView) return;
+    let i = 0;
+    const interval = setInterval(() => {
+      i++;
+      setVisibleLines(i);
+      if (i >= codeLines.length) clearInterval(interval);
+    }, 120);
+    return () => clearInterval(interval);
+  }, [inView]);
+
   return (
-    <div className="min-h-screen bg-[#FFFFFF] text-[#0F172A] selection:bg-[#4F46E5]/10 font-sans">
-      {/* --- Premium Navigation --- */}
-      <nav className="fixed top-0 left-0 right-0 z-[100] bg-white/70 backdrop-blur-xl border-b border-[#E2E8F0]">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-2.5 group cursor-pointer">
-            <div className="w-10 h-10 bg-gradient-to-br from-[#4F46E5] to-[#7C3AED] rounded-xl flex items-center justify-center shadow-lg shadow-[#4F46E5]/30 group-hover:rotate-12 transition-transform duration-500">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
-            <span className="text-2xl font-black tracking-tighter text-[#0F172A]">Forge</span>
+    <div ref={ref} className="w-full max-w-[640px] relative group">
+      <div className="absolute -inset-1 bg-gradient-to-b from-[#4F46E5]/20 to-[#7C3AED]/10 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+      <div className="relative bg-[#0C1222] rounded-2xl border border-white/[0.06] shadow-2xl overflow-hidden">
+        {/* Title bar */}
+        <div className="flex items-center justify-between px-5 py-3.5 bg-white/[0.02] border-b border-white/[0.06]">
+          <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-full bg-[#FF5F57]" />
+            <div className="w-2.5 h-2.5 rounded-full bg-[#FEBC2E]" />
+            <div className="w-2.5 h-2.5 rounded-full bg-[#28C840]" />
           </div>
+          <span className="text-[10px] font-mono font-bold text-white/20 tracking-wider">payout.ts</span>
+          <button
+            onClick={() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+            className="text-white/20 hover:text-white/60 transition-colors"
+          >
+            {copied ? <CheckCircle2 size={13} className="text-emerald-400" /> : <Copy size={13} />}
+          </button>
+        </div>
+
+        {/* Code */}
+        <div className="p-6 font-mono text-[13px] leading-[1.8] overflow-x-auto">
+          {codeLines.map((line, idx) => (
+            <motion.div
+              key={idx}
+              initial={{ opacity: 0, x: -8 }}
+              animate={idx < visibleLines ? { opacity: 1, x: 0 } : { opacity: 0, x: -8 }}
+              transition={{ duration: 0.2 }}
+              className="flex gap-5 hover:bg-white/[0.02] rounded px-2 -mx-2"
+            >
+              <span className="text-white/[0.12] select-none w-5 text-right shrink-0 tabular-nums">{line.num}</span>
+              <span>
+                <span className="text-[#CBD5E1]/60">{line.text}</span>
+                <span className="text-[#4F46E5]">{line.highlight}</span>
+                <span className="text-[#CBD5E1]/60">{line.end}</span>
+              </span>
+            </motion.div>
+          ))}
+          <div className="flex gap-5 px-2 -mx-2">
+            <span className="text-white/[0.12] select-none w-5 text-right shrink-0 tabular-nums">{codeLines.length + 1}</span>
+            <span className="w-2 h-5 bg-[#4F46E5] animate-blink" />
+          </div>
+        </div>
+
+        {/* Response popup */}
+        <motion.div
+          initial={{ opacity: 0, y: 20, scale: 0.95 }}
+          animate={visibleLines >= codeLines.length ? { opacity: 1, y: 0, scale: 1 } : {}}
+          transition={{ delay: 0.5, duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+          className="absolute -right-4 -bottom-4 bg-[#0F172A] border border-emerald-500/20 rounded-xl p-4 shadow-2xl hidden xl:block"
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-emerald-400/80">200 OK</span>
+          </div>
+          <div className="font-mono text-xs text-white/50 space-y-0.5">
+            <div><span className="text-[#4F46E5]">&quot;status&quot;</span>: <span className="text-emerald-400">&quot;completed&quot;</span></div>
+            <div><span className="text-[#4F46E5]">&quot;amount&quot;</span>: <span className="text-amber-400">2500000</span></div>
+            <div><span className="text-[#4F46E5]">&quot;latency&quot;</span>: <span className="text-white/40">&quot;43ms&quot;</span></div>
+          </div>
+        </motion.div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MAIN LANDING PAGE
+// ═══════════════════════════════════════════════════════════════
+export default function HomePage() {
+  const [scrolled, setScrolled] = useState(false);
+  const [mobileMenu, setMobileMenu] = useState(false);
+
+  const heroRef = useRef(null);
+  const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
+  const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
+  const heroScale = useTransform(scrollYProgress, [0, 0.5], [1, 0.97]);
+
+  const txCount = useCounter(2400000, 2500);
+  const uptimeCount = useCounter(99, 1800);
+  const countriesCount = useCounter(40, 2000);
+  const latencyCount = useCounter(43, 1500);
+
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-white text-[#0F172A] font-sans overflow-x-hidden">
+
+      {/* ━━━ NAVIGATION ━━━ */}
+      <nav className={`fixed top-0 left-0 right-0 z-[100] transition-all duration-500 ${
+        scrolled
+          ? "bg-white/80 backdrop-blur-2xl border-b border-[#E2E8F0]/60 py-4"
+          : "bg-transparent py-6"
+      }`}>
+        <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2.5 group">
+            <div className="w-9 h-9 bg-[#4F46E5] rounded-xl flex items-center justify-center shadow-lg shadow-[#4F46E5]/20 group-hover:shadow-[#4F46E5]/40 transition-shadow">
+              <Zap className="text-white fill-white" size={18} />
+            </div>
+            <span className="text-xl font-extrabold tracking-tight">Forge</span>
+          </Link>
 
           <div className="hidden lg:flex items-center gap-10">
-            {['Solutions', 'Developers', 'Pricing', 'Docs'].map((item) => (
+            {["Products", "Developers", "Pricing", "Company"].map((item) => (
               <a
                 key={item}
                 href={`#${item.toLowerCase()}`}
-                className="text-sm font-bold text-[#64748B] hover:text-[#4F46E5] transition-colors relative group"
+                className="text-[13px] font-semibold text-[#64748B] hover:text-[#0F172A] transition-colors relative after:absolute after:bottom-0 after:left-0 after:w-0 after:h-[2px] after:bg-[#4F46E5] hover:after:w-full after:transition-all"
               >
                 {item}
-                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[#4F46E5] transition-all group-hover:w-full" />
               </a>
             ))}
           </div>
 
-          <div className="flex items-center gap-4">
-            <Link
-              href="/login"
-              className="px-5 py-2.5 text-sm font-bold text-[#64748B] hover:text-[#0F172A] transition-colors"
-            >
+          <div className="hidden lg:flex items-center gap-4">
+            <Link href="/login" className="text-[13px] font-semibold text-[#64748B] hover:text-[#0F172A] transition-colors px-4 py-2">
               Sign In
             </Link>
             <Link
               href="/register"
-              className="bg-[#4F46E5] text-white px-6 py-3 rounded-2xl font-black text-sm hover:translate-y-[-2px] hover:shadow-2xl hover:shadow-[#4F46E5]/40 active:translate-y-0 transition-all duration-300"
+              className="bg-[#0F172A] text-white px-5 py-2.5 rounded-xl font-semibold text-[13px] hover:bg-[#1E293B] transition-all shadow-lg shadow-[#0F172A]/10 hover:shadow-[#0F172A]/20 hover:-translate-y-[1px]"
             >
-              Get Started
+              Get API Keys
             </Link>
           </div>
+
+          <button onClick={() => setMobileMenu(!mobileMenu)} className="lg:hidden text-[#0F172A]">
+            {mobileMenu ? <X size={24} /> : <Menu size={24} />}
+          </button>
         </div>
+
+        {/* Mobile Menu */}
+        {mobileMenu && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="lg:hidden absolute top-full left-0 right-0 bg-white border-b border-[#E2E8F0] p-6 space-y-4"
+          >
+            {["Products", "Developers", "Pricing", "Company"].map((item) => (
+              <a key={item} href={`#${item.toLowerCase()}`} className="block text-sm font-semibold text-[#64748B] py-2">
+                {item}
+              </a>
+            ))}
+            <div className="pt-4 border-t border-[#E2E8F0] flex gap-3">
+              <Link href="/login" className="flex-1 text-center py-3 text-sm font-semibold border border-[#E2E8F0] rounded-xl">Sign In</Link>
+              <Link href="/register" className="flex-1 text-center py-3 text-sm font-semibold bg-[#0F172A] text-white rounded-xl">Get API Keys</Link>
+            </div>
+          </motion.div>
+        )}
       </nav>
 
-      {/* --- High-Impact Hero Section --- */}
-      <section className="relative pt-48 pb-32 overflow-hidden bg-white">
-        {/* Abstract Background Elements */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full pointer-events-none -z-10">
-          <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#4F46E5]/5 rounded-full blur-[120px] animate-pulse" />
-          <div className="absolute bottom-[10%] right-[-5%] w-[40%] h-[40%] bg-[#7C3AED]/5 rounded-full blur-[100px]" />
-        </div>
+      {/* ━━━ HERO ━━━ */}
+      <section ref={heroRef} className="relative pt-36 lg:pt-44 pb-24 lg:pb-32 overflow-hidden">
+        <div className="absolute inset-0 grid-bg" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[#4F46E5]/[0.04] rounded-full blur-[120px]" />
 
-        <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-16 items-center">
-          <div className="relative z-10 space-y-10">
-            <div className="inline-flex items-center gap-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-full pl-2 pr-5 py-2 hover:border-[#4F46E5]/30 transition-all duration-500 cursor-pointer shadow-sm">
-              <span className="bg-[#4F46E5] text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest">v3.0</span>
-              <span className="text-xs font-bold text-[#64748B]">Next-gen Financial Logic Engine is Live</span>
-              <svg className="w-4 h-4 text-[#4F46E5]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
-            </div>
-
-            <h1 className="text-6xl lg:text-[6.5rem] font-[1000] tracking-tight text-[#0F172A] leading-[0.95] text-balance">
-              The Engine for <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#4F46E5] via-[#7C3AED] to-[#4F46E5] bg-[length:200%_auto] animate-gradient italic">Borderless Finance.</span>
-            </h1>
-
-            <p className="text-xl text-[#64748B] leading-relaxed max-w-xl font-medium">
-              Forge empowers developers across Africa and the world to integrate programmable money movement and bulk payouts directly into their apps.
-              Built for speed, scale, and global integration.
-            </p>
-
-            <div className="flex flex-col sm:flex-row gap-6">
-              <Link
-                href="/register"
-                className="bg-[#4F46E5] text-white px-12 py-6 rounded-[24px] font-black text-lg hover:shadow-[0_25px_50px_-12px_rgba(79,70,229,0.5)] hover:scale-[1.03] active:scale-[0.97] transition-all duration-500 flex items-center justify-center gap-3"
+        <motion.div style={{ opacity: heroOpacity, scale: heroScale }} className="relative max-w-7xl mx-auto px-6">
+          <div className="grid lg:grid-cols-2 gap-16 lg:gap-24 items-center">
+            <div className="space-y-8">
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6 }}
+                className="inline-flex items-center gap-2.5 bg-[#4F46E5]/[0.05] border border-[#4F46E5]/10 rounded-full px-4 py-1.5"
               >
-                Launch Infrastructure
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                </svg>
-              </Link>
-              <Link
-                href="#docs"
-                className="bg-white text-[#0F172A] border-2 border-[#E2E8F0] px-12 py-6 rounded-[24px] font-black text-lg hover:border-[#4F46E5] hover:bg-[#F8FAFC] transition-all duration-300 flex items-center justify-center gap-2"
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#4F46E5] opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#4F46E5]" />
+                </span>
+                <span className="text-[11px] font-bold text-[#4F46E5] tracking-wide">Now processing live payouts</span>
+              </motion.div>
+
+              <motion.h1
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.7, delay: 0.1, ease: [0.23, 1, 0.32, 1] }}
+                className="text-[3.2rem] lg:text-[4.5rem] font-extrabold tracking-[-0.03em] text-[#0F172A] leading-[1.05]"
               >
-                API Docs
-              </Link>
+                Financial
+                <br />
+                infrastructure,
+                <br />
+                <span className="text-gradient">forged in code.</span>
+              </motion.h1>
+
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.7, delay: 0.2 }}
+                className="text-lg text-[#64748B] font-medium leading-relaxed max-w-[480px]"
+              >
+                Programmatic payouts, real-time transactions, and multi-currency
+                wallets for teams that move fast. One API to power your
+                entire money layer.
+              </motion.p>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.7, delay: 0.3 }}
+                className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pt-2"
+              >
+                <Link
+                  href="/register"
+                  className="group bg-[#4F46E5] text-white px-8 py-4 rounded-2xl font-bold text-[15px] hover:shadow-2xl hover:shadow-[#4F46E5]/25 hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-2"
+                >
+                  Start Building
+                  <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                </Link>
+                <Link
+                  href="#developers"
+                  className="group text-[#0F172A] font-semibold text-[15px] hover:text-[#4F46E5] transition-colors flex items-center gap-2 px-4 py-4"
+                >
+                  <Terminal size={16} />
+                  Read the Docs
+                  <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                </Link>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.6 }}
+                className="flex items-center gap-6 pt-8 border-t border-[#E2E8F0]/60"
+              >
+                <div className="flex items-center gap-2 text-[13px] text-[#94A3B8]">
+                  <Shield size={14} className="text-emerald-500" />
+                  <span>PCI-DSS L1</span>
+                </div>
+                <div className="w-px h-4 bg-[#E2E8F0]" />
+                <div className="flex items-center gap-2 text-[13px] text-[#94A3B8]">
+                  <Lock size={14} className="text-emerald-500" />
+                  <span>SOC 2 Type II</span>
+                </div>
+                <div className="w-px h-4 bg-[#E2E8F0]" />
+                <div className="flex items-center gap-2 text-[13px] text-[#94A3B8]">
+                  <CheckCircle2 size={14} className="text-emerald-500" />
+                  <span>99.99% Uptime</span>
+                </div>
+              </motion.div>
             </div>
 
-            <div className="pt-10">
-              <span className="text-[10px] font-black text-[#64748B] uppercase tracking-[0.4em] block mb-6">World-Class Engineering</span>
-              <div className="flex items-center gap-12 opacity-30 grayscale saturate-0 animate-fade-in">
-                <div className="text-2xl font-black tracking-tighter italic">Nigeria</div>
-                <div className="text-2xl font-black tracking-tighter italic">UK</div>
-                <div className="text-2xl font-black tracking-tighter italic">USA</div>
-                <div className="text-2xl font-black tracking-tighter italic">UAE</div>
-              </div>
-            </div>
+            <motion.div
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.8, delay: 0.3, ease: [0.23, 1, 0.32, 1] }}
+              className="relative"
+            >
+              <div className="absolute -inset-8 bg-gradient-to-br from-[#4F46E5]/10 via-[#7C3AED]/5 to-transparent blur-[80px] rounded-full" />
+              <TypingCode />
+            </motion.div>
           </div>
+        </motion.div>
+      </section>
 
-          <div className="relative group perspective-1000">
-            <div className="absolute inset-0 bg-gradient-to-br from-[#4F46E5]/30 to-[#7C3AED]/30 rounded-[64px] blur-3xl opacity-40 group-hover:opacity-60 transition-opacity duration-700" />
-            <div className="relative bg-[#F8FAFC] p-4 rounded-[64px] shadow-[0_80px_160px_-40px_rgba(0,0,0,0.15)] border border-[#E2E8F0] overflow-hidden transform group-hover:rotate-1 group-hover:scale-[1.02] transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)]">
-              <Image
-                src="/hero-illustration.png"
-                alt="Forge Global Financial Engine Illustration"
-                width={1000}
-                height={1000}
-                className="rounded-[52px] drop-shadow-3xl"
-                priority
-              />
-              <div className="absolute bottom-10 left-10 right-10 bg-white/40 backdrop-blur-2xl border border-white/20 p-8 rounded-[32px] shadow-xl">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-xs font-black text-[#0F172A] uppercase tracking-widest">Network Throughput</span>
-                  <span className="text-xs font-bold text-[#4F46E5]">Live</span>
+      {/* ━━━ LIVE METRICS BAR ━━━ */}
+      <section className="relative py-16 bg-[#0F172A] noise overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-[#4F46E5]/10 via-transparent to-[#7C3AED]/10" />
+        <div className="relative z-10 max-w-7xl mx-auto px-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-16">
+            {[
+              { label: "Transactions Processed", value: txCount.count, ref: txCount.ref, suffix: "+", format: true },
+              { label: "Uptime SLA", value: uptimeCount.count, ref: uptimeCount.ref, suffix: ".99%" },
+              { label: "Countries Covered", value: countriesCount.count, ref: countriesCount.ref, suffix: "+" },
+              { label: "Avg Latency", value: latencyCount.count, ref: latencyCount.ref, suffix: "ms" },
+            ].map((metric, i) => (
+              <div key={i} className="text-center lg:text-left">
+                <div className="text-3xl lg:text-5xl font-extrabold text-white tracking-tight mb-2">
+                  <span ref={metric.ref}>
+                    {metric.format ? (metric.value).toLocaleString() : metric.value}
+                  </span>
+                  <span className="text-[#4F46E5]">{metric.suffix}</span>
                 </div>
-                <div className="h-2 bg-[#E2E8F0] rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-[#4F46E5] to-[#7C3AED] w-[88%] animate-shimmer" />
-                </div>
+                <div className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/30">{metric.label}</div>
               </div>
-            </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* --- Feature Deep-Dive --- */}
-      <section id="solutions" className="py-40 bg-[#F8FAFC] relative">
+      {/* ━━━ HOW IT WORKS ━━━ */}
+      <section className="py-28 lg:py-40 bg-[#FAFBFC] border-y border-[#E2E8F0]/60 dot-bg">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="grid lg:grid-cols-2 gap-24 items-center mb-32">
-            <div>
-              <h2 className="text-[10px] font-black text-[#4F46E5] uppercase tracking-[0.5em] mb-6">Core Infrastructure</h2>
-              <h3 className="text-5xl lg:text-6xl font-black text-[#0F172A] leading-[1.1] mb-10 tracking-tight">
-                Built for <br /> Builders, everywhere.
-              </h3>
-              <p className="text-xl text-[#64748B] leading-relaxed mb-12 font-medium">
-                We abstract the complexity of financial integration. Instead of months of negotiation with banks,
-                Forge provides you with a direct bridge to global money movement in minutes.
-              </p>
-              <div className="grid grid-cols-2 gap-8">
-                <div>
-                  <div className="text-4xl font-black text-[#0F172A] mb-2">$500M+</div>
-                  <div className="text-sm font-bold text-[#64748B]">Processed Monthly</div>
-                </div>
-                <div>
-                  <div className="text-4xl font-black text-[#0F172A] mb-2">99.99%</div>
-                  <div className="text-sm font-bold text-[#64748B]">Uptime Guaranteed</div>
-                </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-              {[
-                { title: 'Marketplaces', icon: 'M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z' },
-                { title: 'Fintechs', icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' },
-                { title: 'E-commerce', icon: 'M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z' },
-                { title: 'SaaS Platforms', icon: 'M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4' }
-              ].map((s, i) => (
-                <div key={i} className="bg-white p-8 rounded-[32px] border border-[#E2E8F0] shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-500">
-                  <div className="w-12 h-12 bg-[#4F46E5]/5 text-[#4F46E5] rounded-2xl flex items-center justify-center mb-6">
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d={s.icon} /></svg>
+          <div className="text-center max-w-2xl mx-auto mb-20">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+            >
+              <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#4F46E5] mb-4 block">How It Works</span>
+              <h2 className="text-3xl lg:text-[2.75rem] font-extrabold text-[#0F172A] tracking-tight leading-tight">
+                From zero to first payout
+                <br />in under five minutes.
+              </h2>
+            </motion.div>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
+            {[
+              {
+                step: "01",
+                title: "Create your account",
+                desc: "Sign up and get production API keys instantly. No compliance bottlenecks, no banking hurdles.",
+                icon: <Plus size={22} className="text-[#4F46E5]" />,
+              },
+              {
+                step: "02",
+                title: "Integrate the API",
+                desc: "Use our fully typed SDKs or raw REST endpoints. Copy, paste, and ship.",
+                icon: <Code2 size={22} className="text-[#4F46E5]" />,
+              },
+              {
+                step: "03",
+                title: "Move money globally",
+                desc: "Process payouts, collect payments, and manage ledgers across 40+ countries in real time.",
+                icon: <Globe size={22} className="text-[#4F46E5]" />,
+              },
+            ].map((step, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: i * 0.15 }}
+                className="relative p-8 lg:p-10 bg-white rounded-3xl border border-[#E2E8F0] group hover:border-[#4F46E5]/20 hover:shadow-xl hover:shadow-[#4F46E5]/[0.03] transition-all duration-500"
+              >
+                <div className="flex items-center justify-between mb-8">
+                  <div className="w-12 h-12 bg-[#4F46E5]/[0.06] rounded-2xl flex items-center justify-center group-hover:bg-[#4F46E5] group-hover:[&>svg]:text-white transition-all duration-300">
+                    {step.icon}
                   </div>
-                  <h4 className="text-lg font-black text-[#0F172A]">{s.title}</h4>
+                  <span className="text-[80px] font-extrabold text-[#0F172A]/[0.03] leading-none select-none">{step.step}</span>
                 </div>
-              ))}
-            </div>
+                <h4 className="text-xl font-bold text-[#0F172A] mb-3">{step.title}</h4>
+                <p className="text-[#64748B] leading-relaxed text-[15px]">{step.desc}</p>
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* --- Developer Section --- */}
-      <section id="developers" className="py-40">
+      {/* ━━━ PRODUCT BENTO GRID ━━━ */}
+      <section id="products" className="py-28 lg:py-40 bg-white">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="bg-[#0F172A] rounded-[64px] p-12 lg:p-24 overflow-hidden relative shadow-3xl">
-            <div className="absolute top-0 right-0 w-[50%] h-[100%] bg-[#4F46E5]/10 blur-[120px] pointer-events-none" />
-            <div className="grid lg:grid-cols-2 gap-20 items-center relative z-10">
-              <div>
-                <h3 className="text-4xl lg:text-5xl font-black text-white leading-tight mb-8">
-                  Shipping code, <br /> not forms.
-                </h3>
-                <p className="text-lg text-white/50 leading-relaxed mb-12">
-                  Our developer experience is second to none. Fully typed SDKs, obsessive documentation,
-                  and a sandbox that works exactly like production.
+          <div className="grid lg:grid-cols-2 gap-12 items-end mb-20">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+            >
+              <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#4F46E5] mb-4 block">Products</span>
+              <h2 className="text-3xl lg:text-[2.75rem] font-extrabold text-[#0F172A] tracking-tight leading-tight">
+                Financial primitives for
+                <br />modern engineering teams.
+              </h2>
+            </motion.div>
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1 }}
+              className="text-lg text-[#64748B] max-w-md lg:text-right"
+            >
+              We handle banking complexity, compliance, and ledger reconciliation.
+              You handle the product logic.
+            </motion.p>
+          </div>
+
+          <div className="grid lg:grid-cols-12 gap-5">
+            {/* Payouts */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+              className="lg:col-span-7 bg-gradient-to-br from-[#FAFBFC] to-white rounded-[32px] p-10 lg:p-12 border border-[#E2E8F0] relative overflow-hidden group hover:border-[#4F46E5]/20 transition-colors"
+            >
+              <div className="relative z-10 max-w-sm">
+                <div className="w-12 h-12 bg-[#4F46E5]/[0.06] rounded-2xl flex items-center justify-center mb-8">
+                  <CreditCard size={22} className="text-[#4F46E5]" />
+                </div>
+                <h3 className="text-2xl font-bold text-[#0F172A] mb-4">Atomic Payouts</h3>
+                <p className="text-[#64748B] leading-relaxed mb-8">
+                  Every payout is idempotent, traceable, and instantly verifiable. Bank transfers and mobile
+                  money across 40+ countries with sub-second confirmation.
                 </p>
-                <div className="space-y-6">
-                  {['RESTful & JSON First', 'Idempotent Keys', 'Real-time Webhooks', 'Sandbox Environment'].map(item => (
-                    <div key={item} className="flex items-center gap-4 group cursor-pointer">
-                      <div className="w-6 h-6 rounded-full border border-white/20 flex items-center justify-center group-hover:bg-[#4F46E5] group-hover:border-[#4F46E5] transition-all">
-                        <svg className="w-3.5 h-3.5 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" /></svg>
-                      </div>
-                      <span className="text-sm font-bold text-white/80 group-hover:text-white transition-colors">{item}</span>
+                <div className="flex flex-wrap gap-2">
+                  {["Real-time", "Idempotent", "Multi-rail"].map(tag => (
+                    <span key={tag} className="px-3 py-1.5 bg-white border border-[#E2E8F0] rounded-lg text-[11px] font-bold text-[#64748B] tracking-wide">{tag}</span>
+                  ))}
+                </div>
+              </div>
+              <div className="absolute right-8 top-8 bottom-8 w-[240px] hidden lg:flex flex-col justify-center">
+                <div className="bg-white rounded-2xl border border-[#E2E8F0] p-6 shadow-lg shadow-black/[0.03] group-hover:shadow-xl group-hover:-translate-y-1 transition-all duration-500">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-8 h-8 bg-emerald-500/10 rounded-lg flex items-center justify-center">
+                      <CheckCircle2 size={16} className="text-emerald-500" />
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Completed</div>
+                      <div className="text-[10px] text-[#94A3B8]">43ms latency</div>
+                    </div>
+                  </div>
+                  <div className="text-2xl font-extrabold text-[#0F172A]">&#8358;2,500,000</div>
+                  <div className="text-xs text-[#94A3B8] mt-1">to Zenith Bank ****4521</div>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Security */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="lg:col-span-5 bg-[#0F172A] rounded-[32px] p-10 lg:p-12 relative overflow-hidden group"
+            >
+              <div className="absolute top-0 right-0 w-64 h-64 bg-[#4F46E5]/10 blur-[100px] rounded-full" />
+              <div className="relative z-10">
+                <div className="w-12 h-12 bg-white/[0.06] rounded-2xl flex items-center justify-center mb-8 group-hover:bg-[#4F46E5]/20 transition-colors">
+                  <Shield size={22} className="text-[#4F46E5]" />
+                </div>
+                <h3 className="text-2xl font-bold text-white mb-4">Bank-Grade Security</h3>
+                <p className="text-white/40 leading-relaxed mb-8">
+                  PCI-DSS Level 1 certified. End-to-end encryption, hardware security modules,
+                  and real-time fraud monitoring on every transaction.
+                </p>
+                <div className="space-y-3">
+                  {["256-bit AES encryption", "Hardware security modules", "Real-time fraud detection"].map(item => (
+                    <div key={item} className="flex items-center gap-3">
+                      <CheckCircle2 size={14} className="text-[#4F46E5] shrink-0" />
+                      <span className="text-white/60 text-sm">{item}</span>
                     </div>
                   ))}
                 </div>
               </div>
-              <div className="relative group overflow-hidden rounded-[32px] border border-white/5 shadow-2xl">
-                <div className="bg-white/5 px-6 py-4 flex items-center gap-2 border-b border-white/5">
-                  <div className="flex gap-1.5">
-                    <div className="w-3 h-3 rounded-full bg-red-400/20" />
-                    <div className="w-3 h-3 rounded-full bg-yellow-400/20" />
-                    <div className="w-3 h-3 rounded-full bg-green-400/20" />
+            </motion.div>
+
+            {/* Multi-Currency */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.15 }}
+              className="lg:col-span-4 bg-white rounded-[32px] p-10 lg:p-12 border border-[#E2E8F0] group hover:border-[#4F46E5]/20 transition-colors"
+            >
+              <div className="w-12 h-12 bg-[#4F46E5]/[0.06] rounded-2xl flex items-center justify-center mb-8">
+                <Wallet size={22} className="text-[#4F46E5]" />
+              </div>
+              <h3 className="text-2xl font-bold text-[#0F172A] mb-4">Multi-Currency</h3>
+              <p className="text-[#64748B] leading-relaxed mb-8">
+                Hold, send, and receive in NGN, USD, GBP, EUR, and more. Instant FX at competitive rates.
+              </p>
+              <div className="flex gap-2">
+                {["NGN", "USD", "GBP", "EUR"].map((c) => (
+                  <div key={c} className="w-11 h-11 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl flex items-center justify-center text-[11px] font-extrabold text-[#0F172A] group-hover:border-[#4F46E5]/20 transition-colors">
+                    {c}
                   </div>
-                  <span className="ml-4 text-[10px] font-black uppercase text-white/30 tracking-widest">create_transfer.ts</span>
+                ))}
+              </div>
+            </motion.div>
+
+            {/* Analytics */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="lg:col-span-8 bg-gradient-to-br from-[#FAFBFC] to-white rounded-[32px] p-10 lg:p-12 border border-[#E2E8F0] relative overflow-hidden group hover:border-[#4F46E5]/20 transition-colors"
+            >
+              <div className="flex flex-col md:flex-row gap-10 items-center">
+                <div className="flex-1">
+                  <div className="w-12 h-12 bg-[#4F46E5]/[0.06] rounded-2xl flex items-center justify-center mb-8">
+                    <BarChart3 size={22} className="text-[#4F46E5]" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-[#0F172A] mb-4">Real-Time Analytics</h3>
+                  <p className="text-[#64748B] leading-relaxed mb-6">
+                    Monitor transaction flows, payout performance, and revenue metrics
+                    with live dashboards and programmable webhooks.
+                  </p>
+                  <Link href="#" className="inline-flex items-center gap-2 text-[#4F46E5] font-bold text-sm hover:gap-3 transition-all">
+                    Explore Dashboard <ArrowRight size={14} />
+                  </Link>
                 </div>
-                <div className="bg-[#0A101E] p-10 font-mono text-sm leading-relaxed overflow-x-auto">
-                  <pre className="text-white/40">
-                    <code className="text-white">
-                      <span className="text-[#4F46E5]">import</span> Forge <span className="text-[#4F46E5]">from</span> <span className="text-emerald-400">&apos;@forge/sdk&apos;</span>;{"\n"}
-                      {"\n"}
-                      <span className="text-[#7C3AED]">const</span> sdk = <span className="text-[#7C3AED]">new</span> Forge(<span className="text-white/20">&apos;...&apos;</span>);{"\n"}
-                      {"\n"}
-                      <span className="text-[#7C3AED]">const</span> tx = <span className="text-[#7C3AED]">await</span> sdk.transfers.create({"{"}{"\n"}
-                      {"  "}amount: <span className="text-orange-400">1000000</span>, <span className="text-white/10">// NGN 1M</span>{"\n"}
-                      {"  "}currency: <span className="text-emerald-400">&apos;NGN&apos;</span>,{"\n"}
-                      {"  "}to: <span className="text-emerald-400">&apos;acct_9821&apos;</span>{"\n"}
-                      {"}"});
-                    </code>
-                  </pre>
+                <div className="w-56 h-40 relative hidden md:block">
+                  <svg viewBox="0 0 200 120" className="w-full h-full">
+                    <defs>
+                      <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#4F46E5" stopOpacity="0.15" />
+                        <stop offset="100%" stopColor="#4F46E5" stopOpacity="0" />
+                      </linearGradient>
+                    </defs>
+                    <path d="M0,100 Q30,90 50,75 T100,50 T150,30 T200,10 L200,120 L0,120Z" fill="url(#chartGrad)" />
+                    <path d="M0,100 Q30,90 50,75 T100,50 T150,30 T200,10" fill="none" stroke="#4F46E5" strokeWidth="2.5" strokeLinecap="round" />
+                    <circle cx="200" cy="10" r="4" fill="#4F46E5" className="animate-pulse" />
+                  </svg>
                 </div>
               </div>
-            </div>
+            </motion.div>
           </div>
         </div>
       </section>
 
-      {/* --- Footer & Attribution --- */}
-      <footer className="bg-white border-t border-[#E2E8F0] pt-32 pb-16">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-16 mb-24">
-            <div className="col-span-2 space-y-8">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-[#4F46E5] rounded-xl flex items-center justify-center">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                </div>
-                <span className="text-2xl font-black tracking-tight text-[#0F172A]">Forge</span>
+      {/* ━━━ DEVELOPER EXPERIENCE ━━━ */}
+      <section id="developers" className="py-28 lg:py-40 bg-[#0F172A] relative overflow-hidden noise">
+        <div className="absolute inset-0">
+          <div className="absolute top-1/4 left-0 w-[500px] h-[500px] bg-[#4F46E5]/[0.08] rounded-full blur-[150px]" />
+          <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-[#7C3AED]/[0.06] rounded-full blur-[120px]" />
+        </div>
+
+        <div className="relative z-10 max-w-7xl mx-auto px-6">
+          <div className="grid lg:grid-cols-2 gap-16 lg:gap-24 items-center">
+            <motion.div
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.7 }}
+            >
+              <div className="inline-flex items-center gap-2.5 bg-white/[0.04] border border-white/[0.06] px-4 py-1.5 rounded-full mb-8">
+                <Code2 size={14} className="text-[#4F46E5]" />
+                <span className="text-[11px] font-bold text-white/40 tracking-wide">Developer Experience</span>
               </div>
-              <p className="text-[#64748B] font-medium leading-relaxed max-w-sm">
-                World-class financial infrastructure built for the new internet.
-                Engineering excellence, built by developers in <span className="text-[#0F172A] font-black underline decoration-[#4F46E5] decoration-2 underline-offset-4">Nigeria</span>.
+
+              <h2 className="text-3xl lg:text-[3.2rem] font-extrabold text-white tracking-tight leading-[1.1] mb-8">
+                Built for teams
+                <br />that ship fast.
+              </h2>
+
+              <p className="text-lg text-white/40 leading-relaxed max-w-lg mb-12">
+                Fully typed SDKs, idempotency on every endpoint, real-time
+                webhooks, and documentation that developers actually enjoy reading.
+              </p>
+
+              <div className="grid grid-cols-2 gap-6">
+                {[
+                  { icon: <Lock size={18} />, title: "Idempotent", desc: "Safe retries built-in" },
+                  { icon: <Activity size={18} />, title: "Webhooks", desc: "Real-time JSON events" },
+                  { icon: <RefreshCw size={18} />, title: "Typed SDKs", desc: "TypeScript & Go" },
+                  { icon: <Clock size={18} />, title: "43ms Avg", desc: "P99 under 200ms" },
+                ].map((item) => (
+                  <div key={item.title} className="group">
+                    <div className="text-[#4F46E5] mb-3 group-hover:scale-110 transition-transform">{item.icon}</div>
+                    <div className="text-white font-bold text-sm mb-1">{item.title}</div>
+                    <div className="text-white/30 text-[13px]">{item.desc}</div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, x: 30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.7, delay: 0.2 }}
+            >
+              <TypingCode />
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* ━━━ TESTIMONIAL ━━━ */}
+      <section className="py-28 lg:py-40 bg-white">
+        <div className="max-w-5xl mx-auto px-6">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7 }}
+            className="text-center"
+          >
+            <div className="flex justify-center mb-10">
+              <div className="flex -space-x-3">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="w-10 h-10 rounded-full bg-gradient-to-br from-[#4F46E5] to-[#7C3AED] border-2 border-white flex items-center justify-center">
+                    <Sparkles size={14} className="text-white" />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <blockquote className="text-2xl lg:text-[2.5rem] font-extrabold text-[#0F172A] leading-tight tracking-tight mb-12 max-w-3xl mx-auto">
+              &ldquo;We went from legacy banking integrations to live payouts
+              in one afternoon. Forge is what Stripe should have been for Africa.&rdquo;
+            </blockquote>
+
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-14 h-14 bg-[#0F172A] rounded-full flex items-center justify-center text-white font-bold text-lg">
+                AM
+              </div>
+              <div>
+                <div className="font-bold text-[#0F172A] text-lg">Abubakar Mi</div>
+                <div className="text-sm text-[#94A3B8]">CTO, KrediNou Technologies</div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ━━━ CTA ━━━ */}
+      <section className="py-16 lg:py-20 bg-[#FAFBFC]">
+        <div className="max-w-7xl mx-auto px-6">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7 }}
+            className="relative bg-[#0F172A] rounded-[40px] p-12 lg:p-20 text-center overflow-hidden shadow-2xl"
+          >
+            <div className="absolute inset-0 overflow-hidden">
+              <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#4F46E5]/15 rounded-full blur-[120px]" />
+              <div className="absolute bottom-0 right-1/4 w-72 h-72 bg-[#7C3AED]/10 rounded-full blur-[100px]" />
+              <div className="absolute inset-0 dot-bg opacity-[0.03]" />
+            </div>
+
+            <div className="relative z-10 max-w-2xl mx-auto">
+              <h2 className="text-3xl lg:text-5xl font-extrabold text-white tracking-tight mb-6 leading-tight">
+                Start building the future
+                <br />of finance today.
+              </h2>
+              <p className="text-white/40 text-lg mb-10 max-w-md mx-auto">
+                No lengthy approvals. No archaic processes.
+                Get your API keys and ship your first payout in minutes.
+              </p>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <Link
+                  href="/register"
+                  className="group bg-white text-[#0F172A] px-10 py-4 rounded-2xl font-bold text-lg hover:bg-[#4F46E5] hover:text-white transition-all duration-300 flex items-center gap-3 shadow-lg"
+                >
+                  Get Started Free
+                  <ArrowUpRight size={20} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                </Link>
+                <Link
+                  href="#developers"
+                  className="text-white/50 hover:text-white font-semibold px-6 py-4 transition-colors flex items-center gap-2"
+                >
+                  View Documentation <ChevronRight size={16} />
+                </Link>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ━━━ FOOTER ━━━ */}
+      <footer className="bg-[#FAFBFC] pt-20 pb-12 border-t border-[#E2E8F0]/60">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-12 lg:gap-16 pb-16 border-b border-[#E2E8F0]/60">
+            <div className="col-span-2 space-y-6">
+              <Link href="/" className="flex items-center gap-2.5">
+                <div className="w-9 h-9 bg-[#4F46E5] rounded-xl flex items-center justify-center">
+                  <Zap className="text-white fill-white" size={18} />
+                </div>
+                <span className="text-xl font-extrabold tracking-tight">Forge</span>
+              </Link>
+              <p className="text-[#64748B] text-sm leading-relaxed max-w-xs">
+                The high-performance financial infrastructure
+                platform built for global scale. Engineering
+                excellence, built with pride in Nigeria.
               </p>
             </div>
-            <div>
-              <h5 className="font-black text-xs uppercase tracking-[0.2em] text-[#0F172A] mb-8">Platform</h5>
-              <ul className="space-y-4 text-sm font-bold text-[#64748B]">
-                <li><Link href="#" className="hover:text-[#4F46E5] transition-all">Payouts API</Link></li>
-                <li><Link href="#" className="hover:text-[#4F46E5] transition-all">Wallets</Link></li>
-                <li><Link href="#" className="hover:text-[#4F46E5] transition-all">Ledgers</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h5 className="font-black text-xs uppercase tracking-[0.2em] text-[#0F172A] mb-8">Resources</h5>
-              <ul className="space-y-4 text-sm font-bold text-[#64748B]">
-                <li><Link href="#" className="hover:text-[#4F46E5] transition-all">Documentation</Link></li>
-                <li><Link href="#" className="hover:text-[#4F46E5] transition-all">API Status</Link></li>
-                <li><Link href="#" className="hover:text-[#4F46E5] transition-all">GitHub</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h5 className="font-black text-xs uppercase tracking-[0.2em] text-[#0F172A] mb-8">Company</h5>
-              <ul className="space-y-4 text-sm font-bold text-[#64748B]">
-                <li><Link href="#" className="hover:text-[#4F46E5] transition-all">About Us</Link></li>
-                <li><Link href="#" className="hover:text-[#4F46E5] transition-all">Careers</Link></li>
-                <li><Link href="#" className="hover:text-[#4F46E5] transition-all">Contact</Link></li>
-              </ul>
-            </div>
+
+            {[
+              { title: "Platform", links: ["Payouts", "Wallets", "Ledgers", "Security"] },
+              { title: "Developers", links: ["API Docs", "SDKs", "Webhooks", "Status"] },
+              { title: "Company", links: ["About", "Careers", "Blog", "Contact"] },
+              { title: "Legal", links: ["Privacy", "Terms", "Compliance", "Licenses"] },
+            ].map((group) => (
+              <div key={group.title}>
+                <h5 className="font-bold text-[11px] uppercase tracking-[0.15em] text-[#0F172A] mb-5">{group.title}</h5>
+                <ul className="space-y-3">
+                  {group.links.map((link) => (
+                    <li key={link}>
+                      <Link href="#" className="text-sm text-[#64748B] hover:text-[#4F46E5] transition-colors">
+                        {link}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
-          <div className="pt-16 border-t border-[#E2E8F0] flex flex-col md:flex-row items-center justify-between gap-8">
-            <div className="flex items-center gap-6">
-              <span className="text-xs font-bold text-[#64748B] uppercase tracking-widest">© 2026 Forge Infrastructure Inc.</span>
-              <span className="w-1 h-1 bg-[#64748B] rounded-full" />
-              <span className="text-xs font-black text-[#0F172A] uppercase tracking-widest">Built in Nigeria</span>
+
+          <div className="pt-10 flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="text-[12px] text-[#94A3B8]">
+              &copy; {new Date().getFullYear()} Forge Infrastructure Inc. All rights reserved.
             </div>
-            <div className="flex gap-10 text-xs font-bold text-[#64748B] uppercase tracking-widest">
-              <Link href="#" className="hover:text-[#0F172A] transition-colors">Privacy</Link>
-              <Link href="#" className="hover:text-[#0F172A] transition-colors">Terms</Link>
+            <div className="flex gap-8">
+              {["Twitter", "GitHub", "LinkedIn", "Discord"].map((social) => (
+                <Link key={social} href="#" className="text-[12px] text-[#94A3B8] hover:text-[#4F46E5] transition-colors font-medium">
+                  {social}
+                </Link>
+              ))}
             </div>
           </div>
         </div>
       </footer>
     </div>
-  )
+  );
 }
