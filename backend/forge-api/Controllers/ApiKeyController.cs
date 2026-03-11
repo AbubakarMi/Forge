@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using ForgeApi.DTOs;
 using ForgeApi.DTOs.ApiKeys;
 using ForgeApi.Services;
@@ -13,10 +12,12 @@ namespace ForgeApi.Controllers;
 public class ApiKeyController : ControllerBase
 {
     private readonly IApiKeyService _apiKeyService;
+    private readonly ICurrentOrganizationProvider _orgProvider;
 
-    public ApiKeyController(IApiKeyService apiKeyService)
+    public ApiKeyController(IApiKeyService apiKeyService, ICurrentOrganizationProvider orgProvider)
     {
         _apiKeyService = apiKeyService;
+        _orgProvider = orgProvider;
     }
 
     /// <summary>
@@ -25,12 +26,12 @@ public class ApiKeyController : ControllerBase
     [HttpPost]
     [ProducesResponseType(typeof(ApiResponse<ApiKeyCreatedResponse>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> Create()
+    public async Task<IActionResult> Create([FromBody] CreateApiKeyRequest request)
     {
-        var userId = GetUserId();
-        if (userId == Guid.Empty) return Unauthorized(ApiResponse.Fail("Invalid token."));
-
-        var result = await _apiKeyService.CreateKeyAsync(userId);
+        var result = await _apiKeyService.CreateKeyAsync(
+            _orgProvider.UserId,
+            _orgProvider.OrganizationId,
+            request.Permissions);
         return StatusCode(201, ApiResponse<ApiKeyCreatedResponse>.Ok(result, "API key created. Store it securely — it will not be shown again."));
     }
 
@@ -42,10 +43,7 @@ public class ApiKeyController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetAll()
     {
-        var userId = GetUserId();
-        if (userId == Guid.Empty) return Unauthorized(ApiResponse.Fail("Invalid token."));
-
-        var keys = await _apiKeyService.GetKeysAsync(userId);
+        var keys = await _apiKeyService.GetKeysAsync(_orgProvider.OrganizationId);
         return Ok(ApiResponse<IEnumerable<ApiKeyListResponse>>.Ok(keys));
     }
 
@@ -55,20 +53,9 @@ public class ApiKeyController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Revoke(Guid id)
     {
-        var userId = GetUserId();
-        if (userId == Guid.Empty) return Unauthorized(ApiResponse.Fail("Invalid token."));
-
-        var success = await _apiKeyService.RevokeKeyAsync(userId, id);
+        var success = await _apiKeyService.RevokeKeyAsync(_orgProvider.OrganizationId, id);
         if (!success) return NotFound(ApiResponse.Fail("API key not found."));
 
         return Ok(ApiResponse.Ok(message: "API key revoked."));
-    }
-
-    private Guid GetUserId()
-    {
-        var sub = User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)
-               ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-        return Guid.TryParse(sub, out var id) ? id : Guid.Empty;
     }
 }

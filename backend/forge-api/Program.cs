@@ -1,5 +1,6 @@
 using System.Text;
 using ForgeApi.Configurations;
+using ForgeApi.Jobs;
 using ForgeApi.Middleware;
 using ForgeApi.Services;
 using ForgeApi.Utils;
@@ -97,6 +98,26 @@ builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IPayoutService, PayoutService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<ITransactionValidationService, TransactionValidationService>();
+builder.Services.AddScoped<IOrganizationService, OrganizationService>();
+builder.Services.AddScoped<IBankService, BankService>();
+builder.Services.AddScoped<ICsvParserService, CsvParserService>();
+builder.Services.AddScoped<IPayoutBatchService, PayoutBatchService>();
+builder.Services.AddHttpClient<IBankNormalizationClient, BankNormalizationClient>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration.GetValue<string>("AiService:BaseUrl") ?? "http://localhost:8000");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddScoped<CurrentOrganizationProvider>();
+builder.Services.AddScoped<ICurrentOrganizationProvider>(sp => sp.GetRequiredService<CurrentOrganizationProvider>());
+builder.Services.AddScoped<IReportService, ReportService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<ITransactionProcessingService, TransactionProcessingService>();
+builder.Services.AddHttpClient<IWebhookService, WebhookService>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(10);
+});
+builder.Services.AddSingleton<BatchProcessingQueue>();
+builder.Services.AddHostedService<BatchProcessingJob>();
 
 builder.Services.AddControllers();
 
@@ -132,6 +153,9 @@ app.UseMiddleware<ApiKeyMiddleware>();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Resolve org context after auth — makes org ID and role available to services
+app.UseMiddleware<OrganizationContextMiddleware>();
 
 app.MapControllers();
 

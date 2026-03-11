@@ -1,151 +1,283 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import Card from '@/components/ui/Card'
-import Badge from '@/components/ui/Badge'
+import { useEffect, useState, useCallback } from 'react'
 import { transactionService } from '@/services/transactionService'
-import { Transaction } from '@/types'
+import { reportService } from '@/services/reportService'
+import { showToast } from '@/hooks/useToast'
+import { TransactionDetail, TransactionStats, PaginatedResponse } from '@/types'
+import StatusBadge from '@/components/ui/StatusBadge'
+import EmptyState from '@/components/ui/EmptyState'
+import TransactionDetailModal from '@/components/dashboard/TransactionDetailModal'
+
+function formatNGN(amount: number): string {
+  return new Intl.NumberFormat('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
+    minimumFractionDigits: 2,
+  }).format(amount)
+}
+
+function SkeletonRow() {
+  return (
+    <tr>
+      {Array.from({ length: 6 }).map((_, i) => (
+        <td key={i} className="py-4 pr-4">
+          <div className="h-4 bg-gray-200 rounded animate-pulse" style={{ width: `${60 + Math.random() * 40}%` }} />
+        </td>
+      ))}
+    </tr>
+  )
+}
 
 export default function TransactionsPage() {
-  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [transactions, setTransactions] = useState<PaginatedResponse<TransactionDetail> | null>(null)
+  const [stats, setStats] = useState<TransactionStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [selectedTx, setSelectedTx] = useState<TransactionDetail | null>(null)
+
+  // Filters
+  const [status, setStatus] = useState('')
+  const [search, setSearch] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [page, setPage] = useState(1)
+  const [exportingCsv, setExportingCsv] = useState(false)
+
+  const fetchData = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const [txData, statsData] = await Promise.all([
+        transactionService.getTransactions({
+          status: status || undefined,
+          search: search || undefined,
+          dateFrom: dateFrom || undefined,
+          dateTo: dateTo || undefined,
+          page,
+          pageSize: 20,
+        }),
+        transactionService.getTransactionStats(),
+      ])
+      setTransactions(txData)
+      setStats(statsData)
+    } catch {
+      setError('Failed to load transactions. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }, [status, search, dateFrom, dateTo, page])
 
   useEffect(() => {
-    const fetchTransactions = async () => {
-      setLoading(true)
-      setError('')
-      try {
-        const data = await transactionService.getTransactions()
-        setTransactions(Array.isArray(data) ? data : [])
-      } catch {
-        setError('Failed to load transactions. Please try again.')
-      } finally {
-        setLoading(false)
-      }
+    fetchData()
+  }, [fetchData])
+
+  // Debounced search
+  const [searchInput, setSearchInput] = useState('')
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(searchInput)
+      setPage(1)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [searchInput])
+
+  const handleStatusChange = (val: string) => {
+    setStatus(val)
+    setPage(1)
+  }
+
+  const handleExportCsv = async () => {
+    setExportingCsv(true)
+    try {
+      await reportService.exportTransactions({
+        status: status || undefined,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
+      })
+      showToast('success', 'Transactions exported successfully.')
+    } catch {
+      showToast('error', 'Failed to export transactions.')
+    } finally {
+      setExportingCsv(false)
     }
+  }
 
-    fetchTransactions()
-  }, [])
-
-  const statusCounts = transactions.reduce(
-    (acc, tx) => {
-      const s = tx.status as 'success' | 'pending' | 'failed'
-      acc[s] = (acc[s] || 0) + 1
-      return acc
-    },
-    {} as Record<string, number>
-  )
+  const txList = transactions?.data || []
+  const totalPages = transactions?.totalPages || 1
+  const totalCount = transactions?.totalCount || 0
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-6">
       {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-white">Transactions</h1>
-        <p className="text-forge-muted mt-1">View and monitor all API transactions.</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Transactions</h1>
+          <p className="text-gray-500 mt-1">View and monitor all payout transactions.</p>
+        </div>
+        <button
+          onClick={handleExportCsv}
+          disabled={exportingCsv}
+          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+        >
+          {exportingCsv ? 'Exporting...' : 'Export CSV'}
+        </button>
       </div>
 
-      {/* Summary Pills */}
-      {!loading && transactions.length > 0 && (
-        <div className="flex flex-wrap gap-4">
-          <div className="bg-forge-surface border border-forge-border rounded-xl px-5 py-2.5 shadow-lg shadow-black/10 text-sm">
-            <span className="text-forge-muted font-medium">Total: </span>
-            <span className="font-bold text-white ml-1">{transactions.length}</span>
+      {/* Stats Summary Row */}
+      {stats && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+            <p className="text-sm text-gray-500 font-medium">Total Transactions</p>
+            <p className="text-2xl font-bold text-gray-900 mt-1">{stats.totalTransactions.toLocaleString()}</p>
           </div>
-          {statusCounts.success && (
-            <div className="bg-forge-surface border border-forge-border rounded-xl px-5 py-2.5 shadow-lg shadow-black/10 text-sm">
-              <span className="text-forge-muted font-medium">Successful: </span>
-              <span className="font-bold text-green-400 ml-1">{statusCounts.success}</span>
-            </div>
-          )}
-          {statusCounts.pending && (
-            <div className="bg-forge-surface border border-forge-border rounded-xl px-5 py-2.5 shadow-lg shadow-black/10 text-sm">
-              <span className="text-forge-muted font-medium">Pending: </span>
-              <span className="font-bold text-forge-accent ml-1">{statusCounts.pending}</span>
-            </div>
-          )}
-          {statusCounts.failed && (
-            <div className="bg-forge-surface border border-forge-border rounded-xl px-5 py-2.5 shadow-lg shadow-black/10 text-sm">
-              <span className="text-forge-muted font-medium">Failed: </span>
-              <span className="font-bold text-red-400 ml-1">{statusCounts.failed}</span>
-            </div>
-          )}
-          <div className="bg-forge-surface border border-forge-border rounded-xl px-5 py-2.5 shadow-lg shadow-black/10 text-sm ml-auto">
-            <span className="text-forge-muted font-medium">Total Volume: </span>
-            <span className="font-bold text-white ml-1">
-              ${transactions.reduce((sum, tx) => sum + tx.amount, 0).toFixed(2)}
-            </span>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+            <p className="text-sm text-gray-500 font-medium">Total Volume</p>
+            <p className="text-2xl font-bold text-gray-900 mt-1">{formatNGN(stats.totalAmount)}</p>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+            <p className="text-sm text-gray-500 font-medium">Success Rate</p>
+            <p className="text-2xl font-bold text-green-600 mt-1">{stats.successRate.toFixed(1)}%</p>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+            <p className="text-sm text-gray-500 font-medium">Failed</p>
+            <p className="text-2xl font-bold text-red-600 mt-1">{stats.failedCount.toLocaleString()}</p>
           </div>
         </div>
       )}
 
+      {/* Filter Bar */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+        <div className="flex flex-wrap gap-4 items-end">
+          {/* Status */}
+          <div className="flex flex-col">
+            <label className="text-xs font-medium text-gray-500 mb-1">Status</label>
+            <select
+              value={status}
+              onChange={(e) => handleStatusChange(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">All</option>
+              <option value="pending">Pending</option>
+              <option value="processing">Processing</option>
+              <option value="completed">Completed</option>
+              <option value="failed">Failed</option>
+            </select>
+          </div>
+
+          {/* Search */}
+          <div className="flex flex-col flex-1 min-w-[200px]">
+            <label className="text-xs font-medium text-gray-500 mb-1">Search</label>
+            <input
+              type="text"
+              placeholder="Recipient name, bank, account..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+
+          {/* Date From */}
+          <div className="flex flex-col">
+            <label className="text-xs font-medium text-gray-500 mb-1">From</label>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => { setDateFrom(e.target.value); setPage(1) }}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+
+          {/* Date To */}
+          <div className="flex flex-col">
+            <label className="text-xs font-medium text-gray-500 mb-1">To</label>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => { setDateTo(e.target.value); setPage(1) }}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+        </div>
+      </div>
+
       {/* Error */}
       {error && (
-        <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
-          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
+        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
           {error}
         </div>
       )}
 
-      {/* Transactions Table */}
-      <Card>
+      {/* Transaction Table */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <svg className="animate-spin w-6 h-6 text-forge-primary" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 bg-gray-50">
+                  <th className="text-left text-gray-500 font-medium px-6 py-3 text-xs uppercase tracking-wider">Recipient</th>
+                  <th className="text-left text-gray-500 font-medium px-6 py-3 text-xs uppercase tracking-wider">Bank</th>
+                  <th className="text-left text-gray-500 font-medium px-6 py-3 text-xs uppercase tracking-wider">Account</th>
+                  <th className="text-left text-gray-500 font-medium px-6 py-3 text-xs uppercase tracking-wider">Amount</th>
+                  <th className="text-left text-gray-500 font-medium px-6 py-3 text-xs uppercase tracking-wider">Status</th>
+                  <th className="text-left text-gray-500 font-medium px-6 py-3 text-xs uppercase tracking-wider">Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <SkeletonRow key={i} />
+                ))}
+              </tbody>
+            </table>
           </div>
-        ) : transactions.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="w-16 h-16 bg-forge-background rounded-full flex items-center justify-center mx-auto mb-4 border border-forge-border">
-              <svg className="w-8 h-8 text-forge-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        ) : txList.length === 0 ? (
+          <EmptyState
+            icon={
+              <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
-            </div>
-            <p className="text-white font-medium mb-1">No transactions yet</p>
-            <p className="text-forge-muted text-sm">Transactions will appear here once your API is active.</p>
-          </div>
+            }
+            title="No transactions found"
+            description="No transactions match your current filters. Try adjusting the filters or upload a new batch."
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-forge-border">
-                  <th className="text-left text-forge-muted font-medium pb-4 pr-4 uppercase tracking-wider text-[11px]">Transaction ID</th>
-                  <th className="text-left text-forge-muted font-medium pb-4 pr-4 uppercase tracking-wider text-[11px]">Amount</th>
-                  <th className="text-left text-forge-muted font-medium pb-4 pr-4 uppercase tracking-wider text-[11px]">Currency</th>
-                  <th className="text-left text-forge-muted font-medium pb-4 pr-4 uppercase tracking-wider text-[11px]">Status</th>
-                  <th className="text-left text-forge-muted font-medium pb-4 uppercase tracking-wider text-[11px]">Date</th>
+                <tr className="border-b border-gray-200 bg-gray-50">
+                  <th className="text-left text-gray-500 font-medium px-6 py-3 text-xs uppercase tracking-wider">Recipient</th>
+                  <th className="text-left text-gray-500 font-medium px-6 py-3 text-xs uppercase tracking-wider">Bank</th>
+                  <th className="text-left text-gray-500 font-medium px-6 py-3 text-xs uppercase tracking-wider">Account</th>
+                  <th className="text-left text-gray-500 font-medium px-6 py-3 text-xs uppercase tracking-wider">Amount</th>
+                  <th className="text-left text-gray-500 font-medium px-6 py-3 text-xs uppercase tracking-wider">Status</th>
+                  <th className="text-left text-gray-500 font-medium px-6 py-3 text-xs uppercase tracking-wider">Date</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-forge-border/50">
-                {transactions.map((tx) => (
-                  <tr key={tx.id} className="hover:bg-white/5 transition-colors group">
-                    <td className="py-4 pr-4">
-                      <span className="font-mono text-xs bg-forge-background text-white px-3 py-1.5 rounded border border-forge-border group-hover:border-forge-primary/30 transition-colors">
-                        {tx.id.length > 16 ? `${tx.id.slice(0, 8)}...${tx.id.slice(-4)}` : tx.id}
+              <tbody className="divide-y divide-gray-100">
+                {txList.map((tx) => (
+                  <tr
+                    key={tx.id}
+                    onClick={() => setSelectedTx(tx)}
+                    className="hover:bg-gray-50 transition-colors cursor-pointer"
+                  >
+                    <td className="px-6 py-4 font-medium text-gray-900">{tx.recipientName}</td>
+                    <td className="px-6 py-4 text-gray-600">
+                      <span>{tx.rawBankName}</span>
+                      <span className="mx-1 text-gray-400">&rarr;</span>
+                      <span className={tx.normalizedBankName ? 'text-gray-900 font-medium' : 'text-gray-400 italic'}>
+                        {tx.normalizedBankName || 'No match'}
                       </span>
                     </td>
-                    <td className="py-4 pr-4">
-                      <span className="font-bold text-white">${tx.amount.toFixed(2)}</span>
+                    <td className="px-6 py-4 font-mono text-gray-600 text-xs">{tx.accountNumber}</td>
+                    <td className="px-6 py-4 font-semibold text-gray-900">{formatNGN(tx.amount)}</td>
+                    <td className="px-6 py-4">
+                      <StatusBadge status={tx.status} />
                     </td>
-                    <td className="py-4 pr-4">
-                      <span className="text-forge-muted uppercase font-semibold text-[11px] tracking-widest group-hover:text-forge-text transition-colors">
-                        {tx.currency}
-                      </span>
-                    </td>
-                    <td className="py-4 pr-4">
-                      <Badge status={tx.status as 'success' | 'pending' | 'failed'} />
-                    </td>
-                    <td className="py-4 text-forge-muted group-hover:text-forge-text transition-colors font-medium">
+                    <td className="px-6 py-4 text-gray-500">
                       {new Date(tx.createdAt).toLocaleDateString('en-US', {
-                        year: 'numeric',
                         month: 'short',
                         day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
+                        year: 'numeric',
                       })}
                     </td>
                   </tr>
@@ -154,7 +286,60 @@ export default function TransactionsPage() {
             </table>
           </div>
         )}
-      </Card>
+
+        {/* Pagination */}
+        {!loading && txList.length > 0 && (
+          <div className="border-t border-gray-200 px-6 py-4 flex items-center justify-between">
+            <p className="text-sm text-gray-500">
+              Page {page} of {totalPages} ({totalCount.toLocaleString()} total)
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700"
+              >
+                Previous
+              </button>
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum: number
+                if (totalPages <= 5) {
+                  pageNum = i + 1
+                } else if (page <= 3) {
+                  pageNum = i + 1
+                } else if (page >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i
+                } else {
+                  pageNum = page - 2 + i
+                }
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => setPage(pageNum)}
+                    className={`px-3 py-1.5 text-sm rounded-lg ${
+                      page === pageNum
+                        ? 'bg-blue-600 text-white'
+                        : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                )
+              })}
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Detail Modal */}
+      <TransactionDetailModal transaction={selectedTx} onClose={() => setSelectedTx(null)} />
     </div>
   )
 }

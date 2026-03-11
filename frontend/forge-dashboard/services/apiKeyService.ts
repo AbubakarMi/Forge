@@ -9,8 +9,8 @@ interface ApiResponseWrapper<T> {
 }
 
 export const apiKeyService = {
-  async createKey(): Promise<ApiKeyCreated> {
-    const response = await apiClient.post<ApiResponseWrapper<ApiKeyCreated>>('/api/apikeys')
+  async createKey(permissions?: string): Promise<ApiKeyCreated> {
+    const response = await apiClient.post<ApiResponseWrapper<ApiKeyCreated>>('/api/apikeys', { permissions })
     return response.data.data
   },
 

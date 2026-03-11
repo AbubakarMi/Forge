@@ -17,6 +17,7 @@ export interface Organization {
   name: string
   email: string
   country: string
+  role: string
   createdAt: string
   updatedAt: string
 }
@@ -25,6 +26,7 @@ export interface OrganizationMember {
   id: string
   userId: string
   organizationId: string
+  email: string
   role: string
   joinedAt: string
   user?: User
@@ -36,12 +38,14 @@ export interface ApiKeyCreated {
   id: string
   keyPrefix: string
   fullKey: string
+  permissions: string
   createdAt: string
 }
 
 export interface ApiKey {
   id: string
   keyPrefix: string
+  permissions: string
   createdAt: string
   lastUsedAt: string | null
   isRevoked: boolean
