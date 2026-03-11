@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet tool:*)",
+      "Bash(cd C:/Users/lenovo/Documents/DevFlux/ForgeAPI/backend/forge-api && dotnet ef migrations add InitialCreate)",
+      "Bash(cd C:/Users/lenovo/Documents/DevFlux/ForgeAPI/backend/forge-api && dotnet build 2>&1)",
+      "Bash(cd C:/Users/lenovo/Documents/DevFlux/ForgeAPI/backend/forge-api && dotnet ef database update 2>&1)",
+      "Bash(cd C:/Users/lenovo/Documents/DevFlux/ForgeAPI/backend/forge-api && PGPASSWORD=root psql -h localhost -U postgres -d forge_db -c \"\\\\dt\" 2>&1)",
+      "Bash(find \"C:\\\\Users\\\\lenovo\\\\Documents\\\\DevFlux\\\\ForgeAPI\\\\frontend\\\\forge-dashboard\" -type f -name \"*auth*\" -o -name \"*login*\" -o -name \"*register*\" 2>/dev/null | head -20)",
+      "Bash(dotnet build:*)"
+    ]
+  }
+}

@@ -1,0 +1,48 @@
+## .NET Gitignore
+
+# Build outputs
+bin/
+obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider
+.idea/
+
+# VS Code
+.vscode/
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Test results
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+
+# Publish output
+publish/
+**/Properties/launchSettings.json
+
+# Environment / secrets
+# NOTE: appsettings.Development.json is kept for MVP development
+# appsettings.Development.json
+appsettings.Production.json
+*.env
+.env
+
+# OS
+.DS_Store
+Thumbs.db
