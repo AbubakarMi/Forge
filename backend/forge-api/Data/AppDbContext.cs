@@ -19,6 +19,7 @@ public class AppDbContext : DbContext
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
+    public DbSet<Notification> Notifications => Set<Notification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -216,6 +217,21 @@ public class AppDbContext : DbContext
 
             entity.HasIndex(rt => rt.UserId);
             entity.HasIndex(rt => rt.ExpiresAt);
+        });
+
+        // ── Notification ─────────────────────────────────────────────────
+        modelBuilder.Entity<Notification>(entity =>
+        {
+            entity.HasKey(n => n.Id);
+            entity.Property(n => n.Type).IsRequired().HasMaxLength(50);
+            entity.Property(n => n.Title).IsRequired().HasMaxLength(200);
+            entity.Property(n => n.Message).IsRequired().HasMaxLength(1000);
+            entity.HasOne(n => n.Organization).WithMany().HasForeignKey(n => n.OrganizationId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(n => n.User).WithMany().HasForeignKey(n => n.UserId).OnDelete(DeleteBehavior.SetNull);
+            entity.HasIndex(n => n.OrganizationId);
+            entity.HasIndex(n => n.UserId);
+            entity.HasIndex(n => n.CreatedAt);
+            entity.HasIndex(n => n.IsRead);
         });
 
         // ── Payout (legacy — will be removed in Task 8.1) ──────────────

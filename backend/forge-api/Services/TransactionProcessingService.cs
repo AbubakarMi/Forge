@@ -19,6 +19,7 @@ public class TransactionProcessingService : ITransactionProcessingService
     private readonly IBankService _bankService;
     private readonly ITransactionValidationService _validationService;
     private readonly IAuditService _auditService;
+    private readonly INotificationService _notificationService;
     private readonly TransactionLimits _limits;
     private readonly ILogger<TransactionProcessingService> _logger;
 
@@ -27,6 +28,7 @@ public class TransactionProcessingService : ITransactionProcessingService
         IBankService bankService,
         ITransactionValidationService validationService,
         IAuditService auditService,
+        INotificationService notificationService,
         IOptions<TransactionLimits> limits,
         ILogger<TransactionProcessingService> logger)
     {
@@ -34,6 +36,7 @@ public class TransactionProcessingService : ITransactionProcessingService
         _bankService = bankService;
         _validationService = validationService;
         _auditService = auditService;
+        _notificationService = notificationService;
         _limits = limits.Value;
         _logger = logger;
     }
@@ -105,6 +108,14 @@ public class TransactionProcessingService : ITransactionProcessingService
         await _auditService.LogAsync("batch.completed", "PayoutBatch",
             batchId.ToString(), organizationId: batch.OrganizationId,
             details: $"Success: {successCount}, Failed: {failedCount}, Pending: {pendingCount}");
+
+        if (updatedBatch != null)
+        {
+            if (updatedBatch.Status == "completed")
+                await _notificationService.CreateNotificationAsync(batch.OrganizationId, "batch_completed", "Batch Completed", $"Batch '{batch.FileName}' processed successfully. {updatedBatch.SuccessCount} transactions completed.");
+            else
+                await _notificationService.CreateNotificationAsync(batch.OrganizationId, "batch_failed", "Batch Partially Failed", $"Batch '{batch.FileName}' completed with {updatedBatch.FailedCount} failures out of {batch.TotalRecords} transactions.");
+        }
     }
 
     public async Task ProcessTransactionAsync(Guid transactionId)

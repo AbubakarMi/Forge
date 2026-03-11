@@ -17,11 +17,13 @@ public interface IApiKeyService
 public class ApiKeyService : IApiKeyService
 {
     private readonly AppDbContext _context;
+    private readonly INotificationService _notificationService;
     private static readonly HashSet<string> ValidPermissions = new(StringComparer.OrdinalIgnoreCase) { "read", "write", "admin" };
 
-    public ApiKeyService(AppDbContext context)
+    public ApiKeyService(AppDbContext context, INotificationService notificationService)
     {
         _context = context;
+        _notificationService = notificationService;
     }
 
     public async Task<ApiKeyCreatedResponse> CreateKeyAsync(Guid userId, Guid organizationId, string permissions = "read")
@@ -46,6 +48,8 @@ public class ApiKeyService : IApiKeyService
 
         _context.ApiKeys.Add(apiKey);
         await _context.SaveChangesAsync();
+
+        await _notificationService.CreateNotificationAsync(organizationId, "api_key_created", "API Key Created", $"A new API key ({prefix}...) was created with {permissions} permissions.");
 
         return new ApiKeyCreatedResponse
         {
