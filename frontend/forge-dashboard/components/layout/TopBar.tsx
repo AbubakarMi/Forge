@@ -16,6 +16,9 @@ const pageTitles: Record<string, string> = {
   '/dashboard/bulk-upload': 'Bulk Upload',
   '/dashboard/payout-batches': 'Payout Batches',
   '/dashboard/notifications': 'Notifications',
+  '/dashboard/developer': 'Developer',
+  '/dashboard/webhooks': 'Webhooks',
+  '/docs': 'API Documentation',
 }
 
 function getPageTitle(pathname: string): string {

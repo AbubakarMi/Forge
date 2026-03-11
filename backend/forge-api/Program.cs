@@ -111,6 +111,10 @@ builder.Services.AddScoped<CurrentOrganizationProvider>();
 builder.Services.AddScoped<ICurrentOrganizationProvider>(sp => sp.GetRequiredService<CurrentOrganizationProvider>());
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<ITransactionProcessingService, TransactionProcessingService>();
+builder.Services.AddHttpClient<IWebhookService, WebhookService>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(10);
+});
 builder.Services.AddSingleton<BatchProcessingQueue>();
 builder.Services.AddHostedService<BatchProcessingJob>();
 

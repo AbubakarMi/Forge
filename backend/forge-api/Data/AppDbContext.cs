@@ -20,6 +20,8 @@ public class AppDbContext : DbContext
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<WebhookEndpoint> WebhookEndpoints => Set<WebhookEndpoint>();
+    public DbSet<WebhookDelivery> WebhookDeliveries => Set<WebhookDelivery>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -232,6 +234,40 @@ public class AppDbContext : DbContext
             entity.HasIndex(n => n.UserId);
             entity.HasIndex(n => n.CreatedAt);
             entity.HasIndex(n => n.IsRead);
+        });
+
+        // ── WebhookEndpoint ─────────────────────────────────────────────
+        modelBuilder.Entity<WebhookEndpoint>(entity =>
+        {
+            entity.HasKey(w => w.Id);
+            entity.Property(w => w.Url).IsRequired().HasMaxLength(2000);
+            entity.Property(w => w.Events).IsRequired().HasMaxLength(500);
+            entity.Property(w => w.Secret).IsRequired().HasMaxLength(100);
+
+            entity.HasOne(w => w.Organization)
+                  .WithMany()
+                  .HasForeignKey(w => w.OrganizationId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(w => w.OrganizationId);
+            entity.HasIndex(w => w.IsActive);
+        });
+
+        // ── WebhookDelivery ─────────────────────────────────────────────
+        modelBuilder.Entity<WebhookDelivery>(entity =>
+        {
+            entity.HasKey(d => d.Id);
+            entity.Property(d => d.Event).IsRequired().HasMaxLength(100);
+            entity.Property(d => d.Payload).IsRequired();
+
+            entity.HasOne(d => d.WebhookEndpoint)
+                  .WithMany(w => w.Deliveries)
+                  .HasForeignKey(d => d.WebhookEndpointId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(d => d.WebhookEndpointId);
+            entity.HasIndex(d => d.CreatedAt);
+            entity.HasIndex(d => d.NextRetryAt);
         });
 
         // ── Payout (legacy — will be removed in Task 8.1) ──────────────

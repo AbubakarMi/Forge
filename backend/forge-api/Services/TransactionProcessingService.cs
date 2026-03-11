@@ -20,6 +20,7 @@ public class TransactionProcessingService : ITransactionProcessingService
     private readonly ITransactionValidationService _validationService;
     private readonly IAuditService _auditService;
     private readonly INotificationService _notificationService;
+    private readonly IWebhookService _webhookService;
     private readonly TransactionLimits _limits;
     private readonly ILogger<TransactionProcessingService> _logger;
 
@@ -29,6 +30,7 @@ public class TransactionProcessingService : ITransactionProcessingService
         ITransactionValidationService validationService,
         IAuditService auditService,
         INotificationService notificationService,
+        IWebhookService webhookService,
         IOptions<TransactionLimits> limits,
         ILogger<TransactionProcessingService> logger)
     {
@@ -37,6 +39,7 @@ public class TransactionProcessingService : ITransactionProcessingService
         _validationService = validationService;
         _auditService = auditService;
         _notificationService = notificationService;
+        _webhookService = webhookService;
         _limits = limits.Value;
         _logger = logger;
     }
@@ -115,6 +118,18 @@ public class TransactionProcessingService : ITransactionProcessingService
                 await _notificationService.CreateNotificationAsync(batch.OrganizationId, "batch_completed", "Batch Completed", $"Batch '{batch.FileName}' processed successfully. {updatedBatch.SuccessCount} transactions completed.");
             else
                 await _notificationService.CreateNotificationAsync(batch.OrganizationId, "batch_failed", "Batch Partially Failed", $"Batch '{batch.FileName}' completed with {updatedBatch.FailedCount} failures out of {batch.TotalRecords} transactions.");
+
+            // Fire-and-forget webhook delivery
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _webhookService.SendWebhookAsync(batch.OrganizationId,
+                        updatedBatch.Status == "completed" ? "batch.completed" : "batch.failed",
+                        new { batchId = batch.Id, fileName = batch.FileName, totalRecords = batch.TotalRecords, successCount = updatedBatch.SuccessCount, failedCount = updatedBatch.FailedCount, status = updatedBatch.Status });
+                }
+                catch { /* webhook delivery is best-effort */ }
+            });
         }
     }
 
@@ -163,6 +178,17 @@ public class TransactionProcessingService : ITransactionProcessingService
 
             await _auditService.LogAsync("transaction.processed", "Transaction",
                 transactionId.ToString(), organizationId: transaction.OrganizationId);
+
+            // Fire-and-forget webhook for transaction completed
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _webhookService.SendWebhookAsync(transaction.OrganizationId, "transaction.completed",
+                        new { transactionId = transaction.Id, amount = transaction.Amount, currency = transaction.Currency, recipientName = transaction.RecipientName, accountNumber = transaction.AccountNumber, status = transaction.Status });
+                }
+                catch { /* webhook delivery is best-effort */ }
+            });
         }
         catch (AppValidationException ex)
         {
@@ -175,6 +201,17 @@ public class TransactionProcessingService : ITransactionProcessingService
             await _auditService.LogAsync("transaction.failed", "Transaction",
                 transactionId.ToString(), organizationId: transaction.OrganizationId,
                 details: transaction.FailureReason);
+
+            // Fire-and-forget webhook for transaction failed
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _webhookService.SendWebhookAsync(transaction.OrganizationId, "transaction.failed",
+                        new { transactionId = transaction.Id, amount = transaction.Amount, currency = transaction.Currency, recipientName = transaction.RecipientName, accountNumber = transaction.AccountNumber, status = transaction.Status, failureReason = transaction.FailureReason });
+                }
+                catch { /* webhook delivery is best-effort */ }
+            });
         }
     }
 
