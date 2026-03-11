@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { transactionService } from '@/services/transactionService'
+import { reportService } from '@/services/reportService'
+import { showToast } from '@/hooks/useToast'
 import { TransactionDetail, TransactionStats, PaginatedResponse } from '@/types'
 import StatusBadge from '@/components/ui/StatusBadge'
 import EmptyState from '@/components/ui/EmptyState'
@@ -40,6 +42,7 @@ export default function TransactionsPage() {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [page, setPage] = useState(1)
+  const [exportingCsv, setExportingCsv] = useState(false)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -84,6 +87,22 @@ export default function TransactionsPage() {
     setPage(1)
   }
 
+  const handleExportCsv = async () => {
+    setExportingCsv(true)
+    try {
+      await reportService.exportTransactions({
+        status: status || undefined,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
+      })
+      showToast('success', 'Transactions exported successfully.')
+    } catch {
+      showToast('error', 'Failed to export transactions.')
+    } finally {
+      setExportingCsv(false)
+    }
+  }
+
   const txList = transactions?.data || []
   const totalPages = transactions?.totalPages || 1
   const totalCount = transactions?.totalCount || 0
@@ -91,9 +110,18 @@ export default function TransactionsPage() {
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Transactions</h1>
-        <p className="text-gray-500 mt-1">View and monitor all payout transactions.</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Transactions</h1>
+          <p className="text-gray-500 mt-1">View and monitor all payout transactions.</p>
+        </div>
+        <button
+          onClick={handleExportCsv}
+          disabled={exportingCsv}
+          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+        >
+          {exportingCsv ? 'Exporting...' : 'Export CSV'}
+        </button>
       </div>
 
       {/* Stats Summary Row */}

@@ -1431,7 +1431,7 @@ Create app/dashboard/webhooks/[id]/page.tsx:
 
 ---
 
-### Task 13.1 — Create Report Service
+### Task 13.1 — Create Report Service ✅ DONE
 
 **Backend**
 
@@ -1442,7 +1442,7 @@ Create Services/ReportService.cs implementing IReportService:
 
 ---
 
-### Task 13.2 — Create Report Controller
+### Task 13.2 — Create Report Controller ✅ DONE
 
 **Backend**
 
@@ -1453,7 +1453,7 @@ Create Controllers/ReportController.cs:
 
 ---
 
-### Task 13.3 — Create Report Frontend Service
+### Task 13.3 — Create Report Frontend Service ✅ DONE
 
 **Frontend**
 
@@ -1464,7 +1464,7 @@ Create services/reportService.ts:
 
 ---
 
-### Task 13.4 — Create Reports Page
+### Task 13.4 — Create Reports Page ✅ DONE
 
 **Frontend**
 
@@ -1479,7 +1479,7 @@ Update Sidebar — add Reports link.
 
 ---
 
-### Task 13.5 — Add Export Buttons to Existing Pages
+### Task 13.5 — Add Export Buttons to Existing Pages ✅ DONE
 
 **Frontend**
 
@@ -1532,7 +1532,7 @@ Create Jobs/WeeklySummaryEmailJob.cs:
 
 ---
 
-### Task 14.4 — Create Settings Page
+### Task 14.4 — Create Settings Page ✅ DONE
 
 **Frontend**
 

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { payoutBatchService } from '@/services/payoutBatchService'
+import { reportService } from '@/services/reportService'
 import { PayoutBatchDetail, TransactionDetail } from '@/types'
 import StatusBadge from '@/components/ui/StatusBadge'
 import ProgressBar from '@/components/ui/ProgressBar'
@@ -23,6 +24,7 @@ export default function PayoutBatchDetailPage() {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [retrying, setRetrying] = useState(false)
   const [cancelling, setCancelling] = useState(false)
+  const [exportingCsv, setExportingCsv] = useState(false)
 
   const loadBatch = useCallback(async () => {
     try {
@@ -64,6 +66,18 @@ export default function PayoutBatchDetailPage() {
       showToast('error', 'Failed to cancel batch.')
     } finally {
       setCancelling(false)
+    }
+  }
+
+  const handleExportCsv = async () => {
+    setExportingCsv(true)
+    try {
+      await reportService.exportBatchResults(id)
+      showToast('success', 'Batch results exported.')
+    } catch {
+      showToast('error', 'Failed to export batch results.')
+    } finally {
+      setExportingCsv(false)
     }
   }
 
@@ -148,6 +162,13 @@ export default function PayoutBatchDetailPage() {
         </div>
 
         <div className="flex gap-2">
+          <button
+            onClick={handleExportCsv}
+            disabled={exportingCsv}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+          >
+            {exportingCsv ? 'Exporting...' : 'Export CSV'}
+          </button>
           {hasFailedTransactions && (
             <button
               onClick={() => setShowRetryConfirm(true)}

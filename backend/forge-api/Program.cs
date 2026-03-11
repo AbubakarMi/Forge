@@ -109,6 +109,7 @@ builder.Services.AddHttpClient<IBankNormalizationClient, BankNormalizationClient
 });
 builder.Services.AddScoped<CurrentOrganizationProvider>();
 builder.Services.AddScoped<ICurrentOrganizationProvider>(sp => sp.GetRequiredService<CurrentOrganizationProvider>());
+builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<ITransactionProcessingService, TransactionProcessingService>();
 builder.Services.AddHttpClient<IWebhookService, WebhookService>(client =>

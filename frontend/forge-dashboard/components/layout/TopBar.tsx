@@ -18,6 +18,8 @@ const pageTitles: Record<string, string> = {
   '/dashboard/notifications': 'Notifications',
   '/dashboard/developer': 'Developer',
   '/dashboard/webhooks': 'Webhooks',
+  '/dashboard/reports': 'Reports',
+  '/dashboard/settings': 'Settings',
   '/docs': 'API Documentation',
 }
 
