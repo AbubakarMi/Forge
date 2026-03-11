@@ -16,6 +16,9 @@ public class AppDbContext : DbContext
     public DbSet<PayoutBatch> PayoutBatches => Set<PayoutBatch>();
     public DbSet<Transaction> Transactions => Set<Transaction>();
     public DbSet<Payout> Payouts => Set<Payout>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -63,8 +66,10 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<ApiKey>(entity =>
         {
             entity.HasKey(a => a.Id);
-            entity.HasIndex(a => a.Key).IsUnique();
-            entity.Property(a => a.Key).IsRequired();
+            entity.HasIndex(a => a.KeyHash).IsUnique();
+            entity.Property(a => a.KeyHash).IsRequired();
+            entity.Property(a => a.KeyPrefix).IsRequired().HasMaxLength(20);
+            entity.Property(a => a.LastUsedFromIp).HasMaxLength(45);
 
             entity.HasOne(a => a.User)
                   .WithMany(u => u.ApiKeys)
@@ -117,6 +122,9 @@ public class AppDbContext : DbContext
             entity.HasIndex(pb => pb.OrganizationId);
             entity.HasIndex(pb => pb.Status);
             entity.HasIndex(pb => pb.CreatedAt);
+
+            entity.Property(pb => pb.RowVersion)
+                  .IsRowVersion();
         });
 
         // ── Transaction ─────────────────────────────────────────────────
@@ -152,6 +160,55 @@ public class AppDbContext : DbContext
             entity.HasIndex(t => t.PayoutBatchId);
             entity.HasIndex(t => t.OrganizationId);
             entity.HasIndex(t => t.CreatedAt);
+
+            entity.Property(t => t.RowVersion)
+                  .IsRowVersion();
+        });
+
+        // ── IdempotencyRecord ──────────────────────────────────────────
+        modelBuilder.Entity<IdempotencyRecord>(entity =>
+        {
+            entity.HasKey(r => r.Id);
+            entity.HasIndex(r => r.Key).IsUnique();
+            entity.Property(r => r.Key).IsRequired().HasMaxLength(100);
+            entity.Property(r => r.RequestPath).IsRequired().HasMaxLength(500);
+            entity.Property(r => r.RequestHash).IsRequired().HasMaxLength(64);
+            entity.HasIndex(r => r.ExpiresAt);
+        });
+
+        // ── AuditLog ───────────────────────────────────────────────────
+        modelBuilder.Entity<AuditLog>(entity =>
+        {
+            entity.HasKey(a => a.Id);
+            entity.Property(a => a.Id).UseIdentityAlwaysColumn();
+            entity.Property(a => a.Action).IsRequired().HasMaxLength(100);
+            entity.Property(a => a.EntityType).IsRequired().HasMaxLength(100);
+            entity.Property(a => a.EntityId).HasMaxLength(100);
+            entity.Property(a => a.IpAddress).HasMaxLength(45);
+            entity.Property(a => a.UserAgent).HasMaxLength(500);
+
+            entity.HasIndex(a => a.CreatedAt);
+            entity.HasIndex(a => a.UserId);
+            entity.HasIndex(a => a.OrganizationId);
+            entity.HasIndex(a => a.Action);
+        });
+
+        // ── RefreshToken ───────────────────────────────────────────────
+        modelBuilder.Entity<RefreshToken>(entity =>
+        {
+            entity.HasKey(rt => rt.Id);
+            entity.HasIndex(rt => rt.TokenHash).IsUnique();
+            entity.Property(rt => rt.TokenHash).IsRequired();
+            entity.Property(rt => rt.CreatedByIp).HasMaxLength(45);
+            entity.Property(rt => rt.RevokedByIp).HasMaxLength(45);
+
+            entity.HasOne(rt => rt.User)
+                  .WithMany()
+                  .HasForeignKey(rt => rt.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(rt => rt.UserId);
+            entity.HasIndex(rt => rt.ExpiresAt);
         });
 
         // ── Payout (legacy — will be removed in Task 8.1) ──────────────

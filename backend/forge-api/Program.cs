@@ -12,6 +12,8 @@ var builder = WebApplication.CreateBuilder(args);
 // ── Configuration ────────────────────────────────────────────────────────────
 builder.Services.Configure<JwtSettings>(
     builder.Configuration.GetSection("JwtSettings"));
+builder.Services.Configure<TransactionLimits>(
+    builder.Configuration.GetSection("TransactionLimits"));
 
 // ── Database ─────────────────────────────────────────────────────────────────
 builder.Services.AddDatabaseConfig(builder.Configuration);
@@ -49,7 +51,8 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins("http://localhost:4000")
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .AllowCredentials();
     });
 });
 
@@ -92,6 +95,8 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IApiKeyService, ApiKeyService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IPayoutService, PayoutService>();
+builder.Services.AddScoped<IAuditService, AuditService>();
+builder.Services.AddScoped<ITransactionValidationService, TransactionValidationService>();
 
 builder.Services.AddControllers();
 
@@ -106,6 +111,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 // ── Middleware Pipeline ───────────────────────────────────────────────────────
+// Order matters: exception handler first, then rate limiting, then auth
 app.UseMiddleware<ExceptionMiddleware>();
 
 if (app.Environment.IsDevelopment())
@@ -115,6 +121,12 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors();
+
+// Rate limiting before auth — protect against brute force
+app.UseMiddleware<RateLimitMiddleware>();
+
+// Idempotency check before processing
+app.UseMiddleware<IdempotencyMiddleware>();
 
 app.UseMiddleware<ApiKeyMiddleware>();
 

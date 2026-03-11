@@ -19,6 +19,11 @@ public class Transaction
     public DateTime? ProcessedAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    /// <summary>
+    /// Optimistic concurrency token — prevents double-processing of the same transaction.
+    /// </summary>
+    public uint RowVersion { get; set; }
+
     public PayoutBatch PayoutBatch { get; set; } = null!;
     public Organization Organization { get; set; } = null!;
     public Bank? Bank { get; set; }

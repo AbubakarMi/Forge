@@ -1,8 +1,8 @@
 using System.Security.Claims;
-using ForgeApi.Data;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
+using ForgeApi.DTOs;
+using ForgeApi.Services;
+using System.Text.Json;
 
 namespace ForgeApi.Middleware;
 
@@ -11,12 +11,17 @@ public class ApiKeyMiddleware
     private readonly RequestDelegate _next;
     private const string ApiKeyHeader = "X-API-Key";
 
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
+
     public ApiKeyMiddleware(RequestDelegate next)
     {
         _next = next;
     }
 
-    public async Task InvokeAsync(HttpContext context, AppDbContext dbContext)
+    public async Task InvokeAsync(HttpContext context, IApiKeyService apiKeyService)
     {
         var path = context.Request.Path.Value ?? string.Empty;
 
@@ -35,19 +40,21 @@ public class ApiKeyMiddleware
             return;
         }
 
-        var keyString = apiKeyValue.ToString();
+        var rawKey = apiKeyValue.ToString();
 
-        var apiKey = await dbContext.ApiKeys
-            .Include(k => k.User)
-            .FirstOrDefaultAsync(k => k.Key == keyString);
+        var apiKey = await apiKeyService.ValidateKeyAsync(rawKey);
 
-        if (apiKey is null || apiKey.IsRevoked)
+        if (apiKey is null)
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             context.Response.ContentType = "application/json";
-            await context.Response.WriteAsync("{\"error\":\"Invalid or revoked API key.\"}");
+            var response = ApiResponse.Fail("Invalid or revoked API key.");
+            await context.Response.WriteAsync(JsonSerializer.Serialize(response, JsonOptions));
             return;
         }
+
+        // Track IP
+        apiKey.LastUsedFromIp = context.Connection.RemoteIpAddress?.ToString();
 
         // Set claims so controllers can identify the user
         var claims = new[]

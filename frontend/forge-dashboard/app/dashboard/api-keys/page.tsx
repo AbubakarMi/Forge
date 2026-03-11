@@ -47,8 +47,8 @@ export default function ApiKeysPage() {
     setNewKeyValue(null)
     try {
       const data = await apiKeyService.createKey()
-      if (data?.key) {
-        setNewKeyValue(data.key)
+      if (data?.fullKey) {
+        setNewKeyValue(data.fullKey)
       }
       setSuccessMessage('New API key created. Copy it now — it will not be shown again.')
       await fetchKeys()
@@ -182,7 +182,7 @@ export default function ApiKeysPage() {
                   <tr key={apiKey.id} className="hover:bg-white/5 transition-colors group">
                     <td className="py-4 pr-4">
                       <code className="font-mono text-xs bg-forge-background text-white px-3 py-1.5 rounded border border-forge-border group-hover:border-forge-primary/30 transition-colors">
-                        {maskKey(apiKey.key)}
+                        {maskKey(apiKey.keyPrefix)}
                       </code>
                     </td>
                     <td className="py-4 pr-4 text-forge-muted group-hover:text-forge-text transition-colors">

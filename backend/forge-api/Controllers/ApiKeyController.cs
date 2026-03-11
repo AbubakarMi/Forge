@@ -1,6 +1,6 @@
 using System.Security.Claims;
 using ForgeApi.DTOs;
-using ForgeApi.Models;
+using ForgeApi.DTOs.ApiKeys;
 using ForgeApi.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -19,20 +19,26 @@ public class ApiKeyController : ControllerBase
         _apiKeyService = apiKeyService;
     }
 
+    /// <summary>
+    /// Creates a new API key. The full key is returned ONLY in this response.
+    /// </summary>
     [HttpPost]
-    [ProducesResponseType(typeof(ApiResponse<ApiKey>), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiResponse<ApiKeyCreatedResponse>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Create()
     {
         var userId = GetUserId();
         if (userId == Guid.Empty) return Unauthorized(ApiResponse.Fail("Invalid token."));
 
-        var apiKey = await _apiKeyService.CreateKeyAsync(userId);
-        return StatusCode(201, ApiResponse<ApiKey>.Ok(apiKey, "API key created."));
+        var result = await _apiKeyService.CreateKeyAsync(userId);
+        return StatusCode(201, ApiResponse<ApiKeyCreatedResponse>.Ok(result, "API key created. Store it securely — it will not be shown again."));
     }
 
+    /// <summary>
+    /// Lists API keys — returns prefix only, never the full key.
+    /// </summary>
     [HttpGet]
-    [ProducesResponseType(typeof(ApiResponse<IEnumerable<ApiKey>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<IEnumerable<ApiKeyListResponse>>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetAll()
     {
@@ -40,7 +46,7 @@ public class ApiKeyController : ControllerBase
         if (userId == Guid.Empty) return Unauthorized(ApiResponse.Fail("Invalid token."));
 
         var keys = await _apiKeyService.GetKeysAsync(userId);
-        return Ok(ApiResponse<IEnumerable<ApiKey>>.Ok(keys));
+        return Ok(ApiResponse<IEnumerable<ApiKeyListResponse>>.Ok(keys));
     }
 
     [HttpDelete("{id:guid}")]

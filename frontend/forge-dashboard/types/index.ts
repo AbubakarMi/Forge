@@ -8,6 +8,7 @@ export interface User {
 export interface AuthResponse {
   token: string
   email: string
+  tokenExpiresAt: string
 }
 
 // ── Organization ────────────────────────────────────────────────────────────
@@ -31,11 +32,32 @@ export interface OrganizationMember {
 }
 
 // ── API Keys ────────────────────────────────────────────────────────────────
+export interface ApiKeyCreated {
+  id: string
+  keyPrefix: string
+  fullKey: string
+  createdAt: string
+}
+
 export interface ApiKey {
   id: string
-  key: string
+  keyPrefix: string
   createdAt: string
+  lastUsedAt: string | null
   isRevoked: boolean
+}
+
+// ── Audit ──────────────────────────────────────────────────────────────────
+export interface AuditLog {
+  id: number
+  userId: string | null
+  organizationId: string | null
+  action: string
+  entityType: string
+  entityId: string | null
+  ipAddress: string | null
+  details: string | null
+  createdAt: string
 }
 
 // ── Banks ───────────────────────────────────────────────────────────────────
