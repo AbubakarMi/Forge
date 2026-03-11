@@ -6,7 +6,7 @@ namespace ForgeApi.Services;
 
 public interface ITransactionService
 {
-    Task<IEnumerable<TransactionResponse>> GetTransactionsAsync(Guid userId);
+    Task<IEnumerable<TransactionResponse>> GetTransactionsAsync(Guid organizationId);
 }
 
 public class TransactionService : ITransactionService
@@ -18,10 +18,10 @@ public class TransactionService : ITransactionService
         _context = context;
     }
 
-    public async Task<IEnumerable<TransactionResponse>> GetTransactionsAsync(Guid userId)
+    public async Task<IEnumerable<TransactionResponse>> GetTransactionsAsync(Guid organizationId)
     {
         return await _context.Transactions
-            .Where(t => t.UserId == userId)
+            .Where(t => t.OrganizationId == organizationId)
             .OrderByDescending(t => t.CreatedAt)
             .Select(t => new TransactionResponse
             {

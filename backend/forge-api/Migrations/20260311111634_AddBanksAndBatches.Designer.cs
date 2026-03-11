@@ -3,6 +3,7 @@ using System;
 using ForgeApi.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace ForgeApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260311111634_AddBanksAndBatches")]
+    partial class AddBanksAndBatches
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -34,21 +37,9 @@ namespace ForgeApi.Migrations
                     b.Property<bool>("IsRevoked")
                         .HasColumnType("boolean");
 
-                    b.Property<string>("KeyHash")
+                    b.Property<string>("Key")
                         .IsRequired()
                         .HasColumnType("text");
-
-                    b.Property<string>("KeyPrefix")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<DateTime?>("LastUsedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("LastUsedFromIp")
-                        .HasMaxLength(45)
-                        .HasColumnType("character varying(45)");
 
                     b.Property<Guid?>("OrganizationId")
                         .HasColumnType("uuid");
@@ -58,7 +49,7 @@ namespace ForgeApi.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("KeyHash")
+                    b.HasIndex("Key")
                         .IsUnique();
 
                     b.HasIndex("OrganizationId");
@@ -66,61 +57,6 @@ namespace ForgeApi.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("ApiKeys");
-                });
-
-            modelBuilder.Entity("ForgeApi.Models.AuditLog", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<long>("Id"));
-
-                    b.Property<string>("Action")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Details")
-                        .HasColumnType("text");
-
-                    b.Property<string>("EntityId")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("EntityType")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("IpAddress")
-                        .HasMaxLength(45)
-                        .HasColumnType("character varying(45)");
-
-                    b.Property<Guid?>("OrganizationId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("UserAgent")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<Guid?>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Action");
-
-                    b.HasIndex("CreatedAt");
-
-                    b.HasIndex("OrganizationId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("AuditLogs");
                 });
 
             modelBuilder.Entity("ForgeApi.Models.Bank", b =>
@@ -185,50 +121,6 @@ namespace ForgeApi.Migrations
                     b.HasIndex("BankId");
 
                     b.ToTable("BankAliases");
-                });
-
-            modelBuilder.Entity("ForgeApi.Models.IdempotencyRecord", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Key")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("RequestHash")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<string>("RequestPath")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<string>("ResponseBody")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("ResponseStatusCode")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ExpiresAt");
-
-                    b.HasIndex("Key")
-                        .IsUnique();
-
-                    b.ToTable("IdempotencyRecords");
                 });
 
             modelBuilder.Entity("ForgeApi.Models.Organization", b =>
@@ -354,12 +246,6 @@ namespace ForgeApi.Migrations
                     b.Property<int>("PendingCount")
                         .HasColumnType("integer");
 
-                    b.Property<uint>("RowVersion")
-                        .IsConcurrencyToken()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("xid")
-                        .HasColumnName("xmin");
-
                     b.Property<string>("Status")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -387,52 +273,6 @@ namespace ForgeApi.Migrations
                     b.HasIndex("Status");
 
                     b.ToTable("PayoutBatches");
-                });
-
-            modelBuilder.Entity("ForgeApi.Models.RefreshToken", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("CreatedByIp")
-                        .IsRequired()
-                        .HasMaxLength(45)
-                        .HasColumnType("character varying(45)");
-
-                    b.Property<DateTime>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("ReplacedByTokenId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime?>("RevokedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("RevokedByIp")
-                        .HasMaxLength(45)
-                        .HasColumnType("character varying(45)");
-
-                    b.Property<string>("TokenHash")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ExpiresAt");
-
-                    b.HasIndex("TokenHash")
-                        .IsUnique();
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("RefreshTokens");
                 });
 
             modelBuilder.Entity("ForgeApi.Models.Transaction", b =>
@@ -492,12 +332,6 @@ namespace ForgeApi.Migrations
 
                     b.Property<int>("RetryCount")
                         .HasColumnType("integer");
-
-                    b.Property<uint>("RowVersion")
-                        .IsConcurrencyToken()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("xid")
-                        .HasColumnName("xmin");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -619,17 +453,6 @@ namespace ForgeApi.Migrations
                     b.Navigation("CreatedBy");
 
                     b.Navigation("Organization");
-                });
-
-            modelBuilder.Entity("ForgeApi.Models.RefreshToken", b =>
-                {
-                    b.HasOne("ForgeApi.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("ForgeApi.Models.Transaction", b =>

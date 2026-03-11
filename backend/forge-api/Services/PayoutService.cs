@@ -7,8 +7,7 @@ namespace ForgeApi.Services;
 
 public interface IPayoutService
 {
-    Task<PayoutResponse> CreatePayoutAsync(Guid userId, CreatePayoutRequest request);
-    Task<IEnumerable<PayoutResponse>> GetPayoutsAsync(Guid userId);
+    Task<IEnumerable<PayoutResponse>> GetPayoutsAsync(Guid organizationId);
 }
 
 public class PayoutService : IPayoutService
@@ -20,40 +19,11 @@ public class PayoutService : IPayoutService
         _context = context;
     }
 
-    public async Task<PayoutResponse> CreatePayoutAsync(Guid userId, CreatePayoutRequest request)
-    {
-        var transaction = await _context.Transactions
-            .FirstOrDefaultAsync(t => t.Id == request.TransactionId && t.UserId == userId);
-
-        if (transaction is null)
-            throw new KeyNotFoundException("Transaction not found or does not belong to this user.");
-
-        var payout = new Payout
-        {
-            TransactionId = transaction.Id,
-            BankAccount = request.BankAccount,
-            Status = "pending",
-            ProcessedAt = null
-        };
-
-        _context.Payouts.Add(payout);
-        await _context.SaveChangesAsync();
-
-        return new PayoutResponse
-        {
-            Id = payout.Id,
-            TransactionId = payout.TransactionId,
-            BankAccount = payout.BankAccount,
-            Status = payout.Status,
-            ProcessedAt = payout.ProcessedAt
-        };
-    }
-
-    public async Task<IEnumerable<PayoutResponse>> GetPayoutsAsync(Guid userId)
+    public async Task<IEnumerable<PayoutResponse>> GetPayoutsAsync(Guid organizationId)
     {
         return await _context.Payouts
             .Include(p => p.Transaction)
-            .Where(p => p.Transaction.UserId == userId)
+            .Where(p => p.Transaction.OrganizationId == organizationId)
             .OrderByDescending(p => p.Transaction.CreatedAt)
             .Select(p => new PayoutResponse
             {

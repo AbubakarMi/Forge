@@ -1,19 +1,25 @@
 import apiClient from './apiClient'
-import { ApiKey } from '@/types'
+import { ApiKey, ApiKeyCreated } from '@/types'
+
+interface ApiResponseWrapper<T> {
+  success: boolean
+  data: T
+  message: string
+  errors: string[]
+}
 
 export const apiKeyService = {
-  async createKey(): Promise<ApiKey> {
-    const response = await apiClient.post<ApiKey>('/api/apikeys/create')
-    return response.data
+  async createKey(): Promise<ApiKeyCreated> {
+    const response = await apiClient.post<ApiResponseWrapper<ApiKeyCreated>>('/api/apikeys')
+    return response.data.data
   },
 
   async getKeys(): Promise<ApiKey[]> {
-    const response = await apiClient.get<ApiKey[]>('/api/apikeys')
-    return response.data
+    const response = await apiClient.get<ApiResponseWrapper<ApiKey[]>>('/api/apikeys')
+    return response.data.data
   },
 
-  async revokeKey(id: string): Promise<{ message: string }> {
-    const response = await apiClient.delete<{ message: string }>(`/api/apikeys/${id}`)
-    return response.data
+  async revokeKey(id: string): Promise<void> {
+    await apiClient.delete(`/api/apikeys/${id}`)
   },
 }

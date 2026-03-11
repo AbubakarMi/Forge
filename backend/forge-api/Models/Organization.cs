@@ -11,5 +11,5 @@ public class Organization
 
     public ICollection<OrganizationMember> Members { get; set; } = new List<OrganizationMember>();
     public ICollection<ApiKey> ApiKeys { get; set; } = new List<ApiKey>();
-    // PayoutBatches navigation will be added in Task 1.3 when PayoutBatch model is created
+    public ICollection<PayoutBatch> PayoutBatches { get; set; } = new List<PayoutBatch>();
 }

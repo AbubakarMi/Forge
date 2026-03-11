@@ -33,7 +33,7 @@ What already exists:
 
 ---
 
-### Task 1.1 — Create Organization and OrganizationMember Models
+### Task 1.1 — Create Organization and OrganizationMember Models ✅ DONE
 
 **Backend**
 
@@ -46,7 +46,7 @@ Create Models/OrganizationMember.cs:
 
 ---
 
-### Task 1.2 — Create Bank and BankAlias Models
+### Task 1.2 — Create Bank and BankAlias Models ✅ DONE
 
 **Backend**
 
@@ -58,7 +58,7 @@ Create Models/BankAlias.cs:
 
 ---
 
-### Task 1.3 — Create PayoutBatch Model
+### Task 1.3 — Create PayoutBatch Model ✅ DONE
 
 **Backend**
 
@@ -70,7 +70,7 @@ Create Models/PayoutBatch.cs:
 
 ---
 
-### Task 1.4 — Restructure Transaction Model
+### Task 1.4 — Restructure Transaction Model ✅ DONE
 
 **Backend**
 
@@ -84,7 +84,7 @@ Update Models/Transaction.cs to support batch processing:
 
 ---
 
-### Task 1.5 — Update AppDbContext with All New Entities
+### Task 1.5 — Update AppDbContext with All New Entities ✅ DONE
 
 **Backend**
 
@@ -97,7 +97,7 @@ Update Data/AppDbContext.cs:
 
 ---
 
-### Task 1.6 — Create and Run Database Migration
+### Task 1.6 — Create and Run Database Migration ✅ DONE
 
 **Backend**
 
@@ -109,7 +109,7 @@ Verify all tables, relationships, indexes, and constraints are created.
 
 ---
 
-### Task 1.7 — Seed Bank Registry Data
+### Task 1.7 — Seed Bank Registry Data ✅ DONE
 
 **Backend**
 
@@ -125,7 +125,7 @@ Create Data/Seeds/BankSeeder.cs:
 
 ---
 
-### Task 1.8 — Update Frontend TypeScript Types
+### Task 1.8 — Update Frontend TypeScript Types ✅ DONE
 
 **Frontend**
 
@@ -144,7 +144,7 @@ Update types/index.ts with all new types:
 
 ---
 
-### Task 2.1 — Create Standard API Response Wrapper
+### Task 2.1 — Create Standard API Response Wrapper ✅ DONE
 
 **Backend**
 
@@ -159,7 +159,7 @@ Update all existing controllers to return this format.
 
 ---
 
-### Task 2.2 — Create Custom Exception Classes
+### Task 2.2 — Create Custom Exception Classes ✅ DONE
 
 **Backend**
 
@@ -173,7 +173,7 @@ Each exception carries a message and optional error details.
 
 ---
 
-### Task 2.3 — Update Exception Middleware
+### Task 2.3 — Update Exception Middleware ✅ DONE
 
 **Backend**
 
@@ -189,7 +189,7 @@ Update Middleware/ExceptionMiddleware.cs:
 
 ---
 
-### Task 2.4 — Add Request Validation
+### Task 2.4 — Add Request Validation ✅ DONE
 
 **Backend**
 
@@ -199,7 +199,7 @@ Add FluentValidation or DataAnnotations to all existing and new DTOs:
 
 ---
 
-### Task 2.5 — Create Toast Notification System
+### Task 2.5 — Create Toast Notification System ✅ DONE
 
 **Frontend**
 
@@ -209,7 +209,7 @@ Create hooks/useToast.ts — hook to trigger toasts from any component.
 
 ---
 
-### Task 2.6 — Update API Client Error Handling
+### Task 2.6 — Update API Client Error Handling ✅ DONE
 
 **Frontend**
 
@@ -222,6 +222,195 @@ Update services/apiClient.ts:
 - Handle 500 → show generic error toast
 
 Create components/ui/FormError.tsx — reusable validation error display.
+
+---
+
+## Task 2B — Security Hardening (Banking-Grade)
+
+> These tasks fix critical security gaps that exist in the current code. A banking system cannot ship without them.
+
+---
+
+### Task 2B.1 — Hash API Keys (Never Store Raw) ✅ DONE
+
+**Backend**
+
+The current `ApiKeyService` stores API keys as plaintext in the database. This is a critical vulnerability — a database breach exposes every client key.
+
+Update `ApiKeyService.cs`:
+- On key creation: generate raw key → return it to user → store only SHA-256 hash in DB
+- On key lookup (`ApiKeyMiddleware`): hash the incoming key → compare against stored hash
+- The raw key is shown exactly once — at creation. Never returned again.
+
+Update `ApiKey` model:
+- Rename `Key` → `KeyHash` (string)
+- Add `KeyPrefix` (string, first 8 chars like `forge_ab12...` for display)
+- Add `LastUsedAt` (DateTime?)
+
+Migration: rename column, backfill is not possible — all existing keys become invalid (acceptable at this stage).
+
+---
+
+### Task 2B.2 — Secure API Key Responses ✅ DONE
+
+**Backend**
+
+Update `ApiKeyController`:
+- `POST /api/apikeys` → return `{ keyPrefix, fullKey (one-time), createdAt }` — the only time `fullKey` is visible
+- `GET /api/apikeys` → return `{ id, keyPrefix, createdAt, lastUsedAt, isRevoked }` — never return the key/hash
+
+Create `DTOs/ApiKeys/`:
+- `ApiKeyCreatedResponse` (id, keyPrefix, fullKey, createdAt)
+- `ApiKeyListResponse` (id, keyPrefix, createdAt, lastUsedAt, isRevoked)
+
+**Frontend**
+
+Update API keys page:
+- Show "one-time" modal on creation with copy button + warning "This key will not be shown again"
+- List shows prefix only (`forge_ab12****`)
+
+---
+
+### Task 2B.3 — Add Refresh Token & Token Rotation ✅ DONE
+
+**Backend**
+
+Create `Models/RefreshToken.cs`:
+- Id (Guid), UserId (Guid FK), TokenHash (string), ExpiresAt (DateTime), CreatedAt, RevokedAt (DateTime?), ReplacedByTokenId (Guid?), CreatedByIp (string)
+
+Update `AuthService`:
+- On login: generate access token (15 min) + refresh token (7 days)
+- Return both tokens; refresh token set as HttpOnly cookie
+- `POST /api/auth/refresh` — validate refresh token, issue new pair, revoke old
+- `POST /api/auth/revoke` — revoke refresh token family (detect reuse = compromise)
+
+Update `JwtTokenGenerator`:
+- Reduce access token expiry to 15 minutes
+- Add `jti` claim for token identification
+
+Migration: add `RefreshTokens` table.
+
+**Frontend**
+
+Update `apiClient.ts`:
+- On 401: attempt silent refresh via `/api/auth/refresh`
+- If refresh fails: redirect to login
+- Remove token from JS-accessible cookies — use HttpOnly
+
+---
+
+### Task 2B.4 — Create Audit Log System ✅ DONE
+
+**Backend**
+
+Create `Models/AuditLog.cs`:
+- Id (long auto-increment), UserId (Guid?), OrganizationId (Guid?), Action (string: "user.login", "batch.created", "transaction.processed", "apikey.created", "apikey.revoked", "member.added"), EntityType (string), EntityId (string), IpAddress (string), UserAgent (string), Details (string JSON), CreatedAt (DateTime)
+
+Create `Services/AuditService.cs`:
+- `LogAsync(action, entityType, entityId, userId, orgId, details)` — fire-and-forget, never blocks the request
+- `GetAuditLogsAsync(orgId, filters, pagination)` — query with filters
+
+Create `Controllers/AuditController.cs`:
+- `GET /api/audit-logs` — list (admin/owner only), filterable by action, user, date range
+
+Migration: add `AuditLogs` table with indexes on `CreatedAt`, `UserId`, `OrganizationId`, `Action`.
+
+Add audit logging calls to: AuthService (login, register), ApiKeyService (create, revoke), OrganizationService (create, update, add/remove member), PayoutBatchService (create, cancel, retry).
+
+**Frontend**
+
+Create `app/dashboard/audit-log/page.tsx`:
+- Table: timestamp, user email, action, entity, IP address
+- Filters: action type, user, date range
+- Read-only — no delete/edit
+- Add to Sidebar under Organization section
+
+---
+
+### Task 2B.5 — Add Idempotency Keys ✅ DONE
+
+**Backend**
+
+Create `Models/IdempotencyKey.cs`:
+- Id (Guid), Key (string unique), RequestHash (string), ResponseStatusCode (int), ResponseBody (string), CreatedAt (DateTime), ExpiresAt (DateTime — 24 hours)
+
+Create `Middleware/IdempotencyMiddleware.cs`:
+- Check for `Idempotency-Key` header on POST/PUT/PATCH requests
+- If key exists and matches: return cached response
+- If key is new: process request, store response, return
+- If key exists but request hash differs: return 422 (key reuse with different payload)
+
+This prevents double-payments from network retries or client bugs.
+
+**Frontend**
+
+Update `apiClient.ts`:
+- Auto-generate UUID `Idempotency-Key` header on all POST requests
+- Store sent keys to prevent accidental reuse
+
+---
+
+### Task 2B.6 — Add Concurrency Control ✅ DONE
+
+**Backend**
+
+Add optimistic concurrency to financial entities:
+
+Update `PayoutBatch` model:
+- Add `RowVersion` (byte[] with `[Timestamp]` attribute)
+
+Update `Transaction` model:
+- Add `RowVersion` (byte[])
+
+Update `AppDbContext`:
+- Configure `IsRowVersion()` for both entities
+
+Update services to handle `DbUpdateConcurrencyException`:
+- Reload entity, re-apply changes, retry once
+- If still fails, return conflict error
+
+Migration: add `RowVersion` columns.
+
+---
+
+### Task 2B.7 — Add Transaction Amount Limits & Duplicate Detection ✅ DONE
+
+**Backend**
+
+Create `Configurations/TransactionLimits.cs`:
+- MinTransactionAmount (decimal: 100 NGN)
+- MaxTransactionAmount (decimal: 10,000,000 NGN)
+- MaxBatchAmount (decimal: 100,000,000 NGN)
+- MaxDailyOrgAmount (decimal: 500,000,000 NGN)
+- DuplicateWindowMinutes (int: 30)
+
+Create `Services/TransactionValidationService.cs`:
+- `ValidateAmountAsync(amount)` — min/max check
+- `ValidateBatchAmountAsync(totalAmount, orgId)` — batch limit + daily limit
+- `CheckDuplicateAsync(recipientName, accountNumber, bankId, amount, orgId)` — detect duplicates within time window
+- `ValidateAccountNumberAsync(accountNumber, bankCode)` — NUBAN check digit validation for Nigerian accounts (10 digits, mod-10 algorithm)
+
+Wire validation into `PayoutBatchService.CreateBatchFromFileAsync` and all transaction creation paths.
+
+---
+
+### Task 2B.8 — Add Request Rate Limiting & IP Tracking ✅ DONE
+
+**Backend**
+
+> Moved from Task 8.4 to here — rate limiting is a day-one security requirement for financial APIs, not a Phase 1 afterthought.
+
+Create `Middleware/RateLimitMiddleware.cs`:
+- Per API key: 100 requests/minute, 1000 requests/hour
+- Per IP (unauthenticated): 20 requests/minute
+- Return 429 with `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset` headers
+- Use in-memory sliding window (upgrade to Redis in Phase 3)
+
+Update `ApiKeyMiddleware.cs`:
+- Record `LastUsedAt` on each request
+- Track `LastUsedFromIp` (string) on ApiKey model
+
+Migration: add `LastUsedAt`, `LastUsedFromIp` to ApiKeys.
 
 ---
 
@@ -274,18 +463,31 @@ All endpoints require JWT.
 
 ---
 
-### Task 3.4 — Auto-Create Organization on Registration
+### Task 3.4 — Auto-Create Organization on Registration + Role-Based Authorization
 
 **Backend**
 
 Update AuthService:
 - When user registers, auto-create a default organization
-- Add organizationId to JWT claims
+- Add `organizationId` and `role` to JWT claims
+- Wrap in a DB transaction — if org creation fails, user creation rolls back
 
-Create Middleware/OrganizationContextMiddleware.cs:
+Create `Middleware/OrganizationContextMiddleware.cs`:
 - Extract org ID from JWT
-- Make it available to downstream services
+- Validate user is still an active member of that org (not just trusting the token)
+- Make it available to downstream services via `ICurrentOrganizationProvider`
 - Scope all data queries to user's organization
+
+Create `Services/ICurrentOrganizationProvider.cs`:
+- `OrganizationId` (Guid)
+- `UserId` (Guid)
+- `Role` (string)
+- Used by all services instead of manually extracting claims in controllers
+
+Create `Authorization/RoleRequirement.cs`:
+- `[RequireRole("owner")]`, `[RequireRole("admin", "owner")]` custom attributes
+- Authorization handler that checks org membership role
+- Owner: full access. Admin: manage members, create batches, manage keys. Member: read-only + upload batches.
 
 ---
 
@@ -570,12 +772,19 @@ Create DTOs/PayoutBatches/:
 **Backend**
 
 Create Services/PayoutBatchService.cs implementing IPayoutBatchService:
-- CreateBatchFromFileAsync(file, fileName, orgId, userId) — parse CSV, validate, normalize banks, create batch + transactions
-- GetBatchesAsync(orgId, filters) — list with pagination
-- GetBatchDetailAsync(batchId) — batch with transactions
-- GetBatchSummaryAsync(batchId) — status and counts
-- RetryFailedTransactionsAsync(batchId) — retry failed
-- CancelBatchAsync(batchId) — cancel pending batch
+- `CreateBatchFromFileAsync(file, fileName, orgId, userId)`:
+  - Parse CSV → validate each row → normalize banks → check duplicates → validate amounts → validate account numbers (NUBAN)
+  - Wrap batch + all transactions in a single DB transaction — all or nothing
+  - Call `TransactionValidationService` for amount limits and duplicate detection
+  - Call `AuditService.LogAsync("batch.created", ...)`
+  - Return validation errors per row — do NOT silently skip bad data
+- `GetBatchesAsync(orgId, filters)` — list with pagination, always scoped to org
+- `GetBatchDetailAsync(batchId)` — batch with transactions, verify org ownership
+- `GetBatchSummaryAsync(batchId)` — status and counts
+- `RetryFailedTransactionsAsync(batchId)` — retry failed, increment retry count, max 3 retries
+- `CancelBatchAsync(batchId)` — cancel only if status is "pending", audit log it
+
+All methods must verify the batch belongs to the requesting organization (defense in depth — don't rely only on middleware).
 
 ---
 
@@ -686,9 +895,28 @@ Create app/dashboard/payout-batches/[id]/page.tsx:
 **Backend**
 
 Create Services/TransactionProcessingService.cs implementing ITransactionProcessingService:
-- ProcessBatchAsync(batchId) — load pending transactions, update batch to "processing", process each, update counters, mark batch completed
-- ProcessTransactionAsync(transactionId) — validate bank → process payout (simulated in MVP) → update status to completed/failed
-- RetryTransactionAsync(transactionId) — reset to pending, increment retry count, reprocess
+- `ProcessBatchAsync(batchId)`:
+  - Acquire a processing lock (prevent double-processing of same batch)
+  - Update batch status to "processing" with optimistic concurrency check
+  - Process each transaction individually — one failure doesn't stop the batch
+  - Update batch counters atomically using SQL UPDATE (not read-modify-write)
+  - Mark batch completed/partially_failed when all transactions are processed
+  - Audit log: "batch.processing_started", "batch.completed"
+- `ProcessTransactionAsync(transactionId)`:
+  - Validate bank exists and is active
+  - Validate account number format (NUBAN)
+  - Re-check duplicate within processing window
+  - Process payout (simulated in MVP, real bank API in Phase 3)
+  - Update status to completed/failed with timestamp
+  - On failure: store reason, do NOT retry automatically — let user decide
+  - Audit log each status change
+- `RetryTransactionAsync(transactionId)`:
+  - Max 3 retries enforced
+  - Increment retry count
+  - Re-validate before retry (bank could have been deactivated)
+  - Audit log: "transaction.retried"
+
+All status transitions must be valid: pending → processing → completed/failed. No skipping states. No going backward except retry (failed → pending).
 
 ---
 
@@ -832,14 +1060,9 @@ Run migration.
 
 ---
 
-### Task 8.4 — Create Rate Limit Middleware
+### Task 8.4 — Create Rate Limit Middleware ↗️ MOVED to Task 2B.8
 
-**Backend**
-
-Create Middleware/RateLimitMiddleware.cs:
-- 100 requests/minute per API key
-- Return 429 Too Many Requests when exceeded
-- Include headers: X-RateLimit-Remaining, X-RateLimit-Reset
+(Moved to Phase 1 security hardening — rate limiting is a day-one requirement for financial APIs.)
 
 ---
 
@@ -1129,10 +1352,16 @@ Run migration.
 **Backend**
 
 Create Services/WebhookService.cs implementing IWebhookService:
-- RegisterEndpointAsync, GetEndpointsAsync, RemoveEndpointAsync
-- SendWebhookAsync(orgId, event, payload) — send to all matching endpoints with HMAC-SHA256 signature
-- TestEndpointAsync — send test event
-- RetryDeliveryAsync — retry failed (up to 3 attempts, exponential backoff)
+- `RegisterEndpointAsync` — auto-generate signing secret (32 bytes), store hashed
+- `GetEndpointsAsync`, `RemoveEndpointAsync`
+- `SendWebhookAsync(orgId, event, payload)`:
+  - Sign payload with HMAC-SHA256 using endpoint secret
+  - Include headers: `X-Forge-Signature`, `X-Forge-Event`, `X-Forge-Delivery-Id`, `X-Forge-Timestamp`
+  - Timeout: 10 seconds per delivery
+  - Never include sensitive data (full account numbers, keys) in payloads — mask them
+- `TestEndpointAsync` — send test event with sample payload
+- `RetryDeliveryAsync` — retry failed (up to 5 attempts, exponential backoff: 1m, 5m, 30m, 2h, 24h)
+- Audit log all webhook registrations and removals
 
 ---
 
@@ -1317,6 +1546,64 @@ Create app/dashboard/settings/page.tsx:
 - Save preferences button
 
 Update Sidebar — add Settings link.
+
+---
+
+## Task 14B — Data Protection & PII Security
+
+> Financial systems handle sensitive personal data (names, bank accounts, amounts). This task ensures proper handling.
+
+---
+
+### Task 14B.1 — Account Number Masking
+
+**Backend**
+
+Create `Utils/DataMasking.cs`:
+- `MaskAccountNumber("1234567890")` → `"******7890"` (show last 4 only)
+- `MaskEmail("user@email.com")` → `"u***@email.com"`
+- `MaskName("Abubakar Mohammed")` → `"A****** M*******"`
+
+Apply masking to:
+- All API responses (TransactionResponse, PayoutResponse) — except when queried by org owner/admin
+- Webhook payloads — always masked
+- Audit logs — always masked
+- CSV exports — configurable (masked by default, full data requires owner role + confirmation)
+
+---
+
+### Task 14B.2 — Sensitive Field Encryption at Rest
+
+**Backend**
+
+Create `Utils/FieldEncryption.cs`:
+- AES-256-GCM encryption for sensitive database fields
+- Key managed via configuration (will move to vault in Phase 5)
+
+Encrypt at rest:
+- `Transaction.AccountNumber`
+- `ApiKey.KeyHash` (already hashed, but encrypt the hash)
+- `WebhookEndpoint.Secret`
+- `RefreshToken.TokenHash`
+
+Create `Services/EncryptionService.cs`:
+- `Encrypt(plaintext)` → ciphertext
+- `Decrypt(ciphertext)` → plaintext
+- Key rotation support (decrypt with old key, re-encrypt with new)
+
+Migration: update column types to accommodate encrypted data length.
+
+---
+
+### Task 14B.3 — Request/Response Logging Sanitization
+
+**Backend**
+
+Create `Middleware/RequestLoggingMiddleware.cs`:
+- Log: method, path, status code, duration, user ID, org ID, IP
+- NEVER log: request bodies containing passwords, tokens, account numbers, API keys
+- Sanitize headers: mask `Authorization` and `X-API-Key` values in logs
+- Structured logging with correlation IDs (`X-Correlation-Id` header)
 
 ---
 
