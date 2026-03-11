@@ -8,6 +8,5 @@ public class User
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public ICollection<ApiKey> ApiKeys { get; set; } = new List<ApiKey>();
-    public ICollection<Transaction> Transactions { get; set; } = new List<Transaction>();
     public ICollection<OrganizationMember> OrganizationMemberships { get; set; } = new List<OrganizationMember>();
 }

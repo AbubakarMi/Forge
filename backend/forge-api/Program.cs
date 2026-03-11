@@ -98,6 +98,13 @@ builder.Services.AddControllers();
 // ── Build ─────────────────────────────────────────────────────────────────────
 var app = builder.Build();
 
+// ── Seed Database ────────────────────────────────────────────────────────────
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ForgeApi.Data.AppDbContext>();
+    await ForgeApi.Data.Seeds.BankSeeder.SeedAsync(db);
+}
+
 // ── Middleware Pipeline ───────────────────────────────────────────────────────
 app.UseMiddleware<ExceptionMiddleware>();
 
@@ -107,7 +114,6 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Forge API v1"));
 }
 
-app.UseHttpsRedirection();
 app.UseCors();
 
 app.UseMiddleware<ApiKeyMiddleware>();

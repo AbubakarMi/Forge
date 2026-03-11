@@ -33,7 +33,7 @@ What already exists:
 
 ---
 
-### Task 1.1 — Create Organization and OrganizationMember Models
+### Task 1.1 — Create Organization and OrganizationMember Models ✅ DONE
 
 **Backend**
 
@@ -46,7 +46,7 @@ Create Models/OrganizationMember.cs:
 
 ---
 
-### Task 1.2 — Create Bank and BankAlias Models
+### Task 1.2 — Create Bank and BankAlias Models ✅ DONE
 
 **Backend**
 
@@ -58,7 +58,7 @@ Create Models/BankAlias.cs:
 
 ---
 
-### Task 1.3 — Create PayoutBatch Model
+### Task 1.3 — Create PayoutBatch Model ✅ DONE
 
 **Backend**
 
@@ -70,7 +70,7 @@ Create Models/PayoutBatch.cs:
 
 ---
 
-### Task 1.4 — Restructure Transaction Model
+### Task 1.4 — Restructure Transaction Model ✅ DONE
 
 **Backend**
 
@@ -84,7 +84,7 @@ Update Models/Transaction.cs to support batch processing:
 
 ---
 
-### Task 1.5 — Update AppDbContext with All New Entities
+### Task 1.5 — Update AppDbContext with All New Entities ✅ DONE
 
 **Backend**
 
@@ -97,7 +97,7 @@ Update Data/AppDbContext.cs:
 
 ---
 
-### Task 1.6 — Create and Run Database Migration
+### Task 1.6 — Create and Run Database Migration ✅ DONE
 
 **Backend**
 
@@ -109,7 +109,7 @@ Verify all tables, relationships, indexes, and constraints are created.
 
 ---
 
-### Task 1.7 — Seed Bank Registry Data
+### Task 1.7 — Seed Bank Registry Data ✅ DONE
 
 **Backend**
 
@@ -125,7 +125,7 @@ Create Data/Seeds/BankSeeder.cs:
 
 ---
 
-### Task 1.8 — Update Frontend TypeScript Types
+### Task 1.8 — Update Frontend TypeScript Types ✅ DONE
 
 **Frontend**
 
