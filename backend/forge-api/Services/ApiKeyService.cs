@@ -8,23 +8,27 @@ namespace ForgeApi.Services;
 
 public interface IApiKeyService
 {
-    Task<ApiKeyCreatedResponse> CreateKeyAsync(Guid userId);
-    Task<IEnumerable<ApiKeyListResponse>> GetKeysAsync(Guid userId);
-    Task<bool> RevokeKeyAsync(Guid userId, Guid keyId);
+    Task<ApiKeyCreatedResponse> CreateKeyAsync(Guid userId, Guid organizationId, string permissions = "read");
+    Task<IEnumerable<ApiKeyListResponse>> GetKeysAsync(Guid organizationId);
+    Task<bool> RevokeKeyAsync(Guid organizationId, Guid keyId);
     Task<ApiKey?> ValidateKeyAsync(string rawKey);
 }
 
 public class ApiKeyService : IApiKeyService
 {
     private readonly AppDbContext _context;
+    private static readonly HashSet<string> ValidPermissions = new(StringComparer.OrdinalIgnoreCase) { "read", "write", "admin" };
 
     public ApiKeyService(AppDbContext context)
     {
         _context = context;
     }
 
-    public async Task<ApiKeyCreatedResponse> CreateKeyAsync(Guid userId)
+    public async Task<ApiKeyCreatedResponse> CreateKeyAsync(Guid userId, Guid organizationId, string permissions = "read")
     {
+        if (!ValidPermissions.Contains(permissions))
+            throw new ArgumentException($"Invalid permissions value '{permissions}'. Must be one of: read, write, admin.");
+
         var rawKey = ApiKeyHasher.GenerateRawKey();
         var hash = ApiKeyHasher.HashKey(rawKey);
         var prefix = ApiKeyHasher.GetPrefix(rawKey);
@@ -32,8 +36,10 @@ public class ApiKeyService : IApiKeyService
         var apiKey = new ApiKey
         {
             UserId = userId,
+            OrganizationId = organizationId,
             KeyHash = hash,
             KeyPrefix = prefix,
+            Permissions = permissions,
             CreatedAt = DateTime.UtcNow,
             IsRevoked = false
         };
@@ -46,19 +52,21 @@ public class ApiKeyService : IApiKeyService
             Id = apiKey.Id,
             KeyPrefix = prefix,
             FullKey = rawKey,
+            Permissions = permissions,
             CreatedAt = apiKey.CreatedAt
         };
     }
 
-    public async Task<IEnumerable<ApiKeyListResponse>> GetKeysAsync(Guid userId)
+    public async Task<IEnumerable<ApiKeyListResponse>> GetKeysAsync(Guid organizationId)
     {
         return await _context.ApiKeys
-            .Where(k => k.UserId == userId)
+            .Where(k => k.OrganizationId == organizationId)
             .OrderByDescending(k => k.CreatedAt)
             .Select(k => new ApiKeyListResponse
             {
                 Id = k.Id,
                 KeyPrefix = k.KeyPrefix,
+                Permissions = k.Permissions,
                 CreatedAt = k.CreatedAt,
                 LastUsedAt = k.LastUsedAt,
                 IsRevoked = k.IsRevoked
@@ -66,10 +74,10 @@ public class ApiKeyService : IApiKeyService
             .ToListAsync();
     }
 
-    public async Task<bool> RevokeKeyAsync(Guid userId, Guid keyId)
+    public async Task<bool> RevokeKeyAsync(Guid organizationId, Guid keyId)
     {
         var apiKey = await _context.ApiKeys
-            .FirstOrDefaultAsync(k => k.Id == keyId && k.UserId == userId);
+            .FirstOrDefaultAsync(k => k.Id == keyId && k.OrganizationId == organizationId);
 
         if (apiKey is null)
             return false;

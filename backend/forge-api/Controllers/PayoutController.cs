@@ -1,6 +1,5 @@
-using System.Security.Claims;
 using ForgeApi.DTOs;
-using ForgeApi.DTOs.Payouts;
+using ForgeApi.DTOs.Transactions;
 using ForgeApi.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,30 +11,27 @@ namespace ForgeApi.Controllers;
 [Authorize]
 public class PayoutController : ControllerBase
 {
-    private readonly IPayoutService _payoutService;
+    private readonly ITransactionService _transactionService;
+    private readonly ICurrentOrganizationProvider _orgProvider;
 
-    public PayoutController(IPayoutService payoutService)
+    public PayoutController(ITransactionService transactionService, ICurrentOrganizationProvider orgProvider)
     {
-        _payoutService = payoutService;
+        _transactionService = transactionService;
+        _orgProvider = orgProvider;
     }
 
     [HttpGet]
-    [ProducesResponseType(typeof(ApiResponse<IEnumerable<PayoutResponse>>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> GetAll()
+    public async Task<IActionResult> GetAll([FromQuery] TransactionFilterRequest filters)
     {
-        var userId = GetUserId();
-        if (userId == Guid.Empty) return Unauthorized(ApiResponse.Fail("Invalid token."));
-
-        var payouts = await _payoutService.GetPayoutsAsync(userId);
-        return Ok(ApiResponse<IEnumerable<PayoutResponse>>.Ok(payouts));
+        var (transactions, totalCount) = await _transactionService.GetTransactionsAsync(_orgProvider.OrganizationId, filters);
+        var result = new { data = transactions, page = filters.Page, pageSize = filters.PageSize, totalCount, totalPages = (int)Math.Ceiling((double)totalCount / filters.PageSize) };
+        return Ok(ApiResponse<object>.Ok(result));
     }
 
-    private Guid GetUserId()
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> Get(Guid id)
     {
-        var sub = User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)
-               ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-        return Guid.TryParse(sub, out var id) ? id : Guid.Empty;
+        var transaction = await _transactionService.GetTransactionByIdAsync(id, _orgProvider.OrganizationId);
+        return Ok(ApiResponse<TransactionDetailResponse>.Ok(transaction));
     }
 }

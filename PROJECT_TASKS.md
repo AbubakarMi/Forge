@@ -1018,7 +1018,7 @@ Create components/ui/StatCard.tsx — title, value, trend arrow with %, icon, co
 
 ---
 
-### Task 8.1 — Restructure Payout System
+### Task 8.1 — Restructure Payout System ✅ DONE
 
 **Backend**
 
@@ -1034,7 +1034,7 @@ Update PayoutService to work with batch-based system.
 
 ---
 
-### Task 8.2 — Update Payouts Page
+### Task 8.2 — Update Payouts Page ✅ DONE
 
 **Frontend**
 
@@ -1046,7 +1046,7 @@ Update app/dashboard/payouts/page.tsx:
 
 ---
 
-### Task 8.3 — Scope API Keys to Organizations
+### Task 8.3 — Scope API Keys to Organizations ✅ DONE
 
 **Backend**
 
@@ -1066,7 +1066,7 @@ Run migration.
 
 ---
 
-### Task 8.5 — Enhance API Keys Page
+### Task 8.5 — Enhance API Keys Page ✅ DONE
 
 **Frontend**
 

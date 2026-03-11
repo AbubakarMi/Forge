@@ -75,6 +75,13 @@ public class AppDbContext : DbContext
                   .WithMany(u => u.ApiKeys)
                   .HasForeignKey(a => a.UserId)
                   .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(a => a.Organization)
+                  .WithMany(o => o.ApiKeys)
+                  .HasForeignKey(a => a.OrganizationId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.Property(a => a.Permissions).IsRequired().HasMaxLength(20).HasDefaultValue("read");
         });
 
         // ── Bank ────────────────────────────────────────────────────────

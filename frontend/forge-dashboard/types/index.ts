@@ -38,12 +38,14 @@ export interface ApiKeyCreated {
   id: string
   keyPrefix: string
   fullKey: string
+  permissions: string
   createdAt: string
 }
 
 export interface ApiKey {
   id: string
   keyPrefix: string
+  permissions: string
   createdAt: string
   lastUsedAt: string | null
   isRevoked: boolean
