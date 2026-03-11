@@ -17,6 +17,7 @@ export interface Organization {
   name: string
   email: string
   country: string
+  role: string
   createdAt: string
   updatedAt: string
 }
@@ -25,6 +26,7 @@ export interface OrganizationMember {
   id: string
   userId: string
   organizationId: string
+  email: string
   role: string
   joinedAt: string
   user?: User

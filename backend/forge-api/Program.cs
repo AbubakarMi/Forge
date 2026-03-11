@@ -97,6 +97,10 @@ builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IPayoutService, PayoutService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<ITransactionValidationService, TransactionValidationService>();
+builder.Services.AddScoped<IOrganizationService, OrganizationService>();
+builder.Services.AddScoped<IBankService, BankService>();
+builder.Services.AddScoped<CurrentOrganizationProvider>();
+builder.Services.AddScoped<ICurrentOrganizationProvider>(sp => sp.GetRequiredService<CurrentOrganizationProvider>());
 
 builder.Services.AddControllers();
 
@@ -132,6 +136,9 @@ app.UseMiddleware<ApiKeyMiddleware>();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Resolve org context after auth — makes org ID and role available to services
+app.UseMiddleware<OrganizationContextMiddleware>();
 
 app.MapControllers();
 

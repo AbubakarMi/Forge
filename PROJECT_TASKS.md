@@ -418,7 +418,7 @@ Migration: add `LastUsedAt`, `LastUsedFromIp` to ApiKeys.
 
 ---
 
-### Task 3.1 — Create Organization DTOs
+### Task 3.1 — Create Organization DTOs ✅ DONE
 
 **Backend**
 
@@ -431,7 +431,7 @@ Create DTOs/Organizations/:
 
 ---
 
-### Task 3.2 — Create Organization Service
+### Task 3.2 — Create Organization Service ✅ DONE
 
 **Backend**
 
@@ -446,7 +446,7 @@ Create Services/OrganizationService.cs implementing IOrganizationService:
 
 ---
 
-### Task 3.3 — Create Organization Controller
+### Task 3.3 — Create Organization Controller ✅ DONE
 
 **Backend**
 
@@ -463,7 +463,7 @@ All endpoints require JWT.
 
 ---
 
-### Task 3.4 — Auto-Create Organization on Registration + Role-Based Authorization
+### Task 3.4 — Auto-Create Organization on Registration + Role-Based Authorization ✅ DONE
 
 **Backend**
 
@@ -491,7 +491,7 @@ Create `Authorization/RoleRequirement.cs`:
 
 ---
 
-### Task 3.5 — Create Organization Frontend Service
+### Task 3.5 — Create Organization Frontend Service ✅ DONE
 
 **Frontend**
 
@@ -506,7 +506,7 @@ Create services/organizationService.ts:
 
 ---
 
-### Task 3.6 — Create Organization Settings Page
+### Task 3.6 — Create Organization Settings Page ✅ DONE
 
 **Frontend**
 
@@ -522,7 +522,7 @@ Update components/layout/TopBar.tsx — show current org name.
 
 ---
 
-### Task 3.7 — Create Organization Members Page
+### Task 3.7 — Create Organization Members Page ✅ DONE
 
 **Frontend**
 
@@ -535,7 +535,7 @@ Create app/dashboard/organization/members/page.tsx:
 
 ---
 
-### Task 3.8 — Update Auth Hook for Organization Context
+### Task 3.8 — Update Auth Hook for Organization Context ✅ DONE
 
 **Frontend**
 
@@ -550,7 +550,7 @@ Update hooks/useAuth.ts:
 
 ---
 
-### Task 4.1 — Create Bank DTOs
+### Task 4.1 — Create Bank DTOs ✅ DONE
 
 **Backend**
 
@@ -562,7 +562,7 @@ Create DTOs/Banks/:
 
 ---
 
-### Task 4.2 — Create Bank Service
+### Task 4.2 — Create Bank Service ✅ DONE
 
 **Backend**
 
@@ -577,7 +577,7 @@ Create Services/BankService.cs implementing IBankService:
 
 ---
 
-### Task 4.3 — Create Bank Controller
+### Task 4.3 — Create Bank Controller ✅ DONE
 
 **Backend**
 
@@ -590,7 +590,7 @@ Create Controllers/BankController.cs:
 
 ---
 
-### Task 4.4 — Create Bank Frontend Service
+### Task 4.4 — Create Bank Frontend Service ✅ DONE
 
 **Frontend**
 
@@ -603,7 +603,7 @@ Create services/bankService.ts:
 
 ---
 
-### Task 4.5 — Create Bank Registry Page
+### Task 4.5 — Create Bank Registry Page ✅ DONE
 
 **Frontend**
 
@@ -618,7 +618,7 @@ Update Sidebar — add Banks link.
 
 ---
 
-### Task 4.6 — Create Bank Selector Component
+### Task 4.6 — Create Bank Selector Component ✅ DONE
 
 **Frontend**
 

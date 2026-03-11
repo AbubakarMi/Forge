@@ -8,6 +8,9 @@ const pageTitles: Record<string, string> = {
   '/dashboard/api-keys': 'API Keys',
   '/dashboard/transactions': 'Transactions',
   '/dashboard/payouts': 'Payouts',
+  '/dashboard/banks': 'Bank Registry',
+  '/dashboard/organization': 'Organization',
+  '/dashboard/organization/members': 'Team Members',
 }
 
 function getPageTitle(pathname: string): string {

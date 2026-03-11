@@ -18,19 +18,24 @@ public class JwtTokenGenerator
         _jwtSettings = jwtSettings.Value;
     }
 
-    public (string Token, DateTime ExpiresAt) GenerateAccessToken(User user)
+    public (string Token, DateTime ExpiresAt) GenerateAccessToken(User user, Guid? orgId = null, string? role = null)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.Secret));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var expiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpiryInMinutes);
 
-        var claims = new[]
+        var claims = new List<Claim>
         {
-            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-            new Claim(JwtRegisteredClaimNames.Email, user.Email),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new(JwtRegisteredClaimNames.Email, user.Email),
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
+
+        if (orgId.HasValue)
+            claims.Add(new Claim("org_id", orgId.Value.ToString()));
+        if (!string.IsNullOrEmpty(role))
+            claims.Add(new Claim("org_role", role));
 
         var token = new JwtSecurityToken(
             issuer: _jwtSettings.Issuer,
