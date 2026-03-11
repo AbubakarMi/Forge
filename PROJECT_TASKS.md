@@ -1180,7 +1180,7 @@ Create app/dashboard/notifications/page.tsx:
 
 ---
 
-### Task 10.1 — Set Up Backend Test Project
+### Task 10.1 — Set Up Backend Test Project ✅ DONE
 
 **Backend**
 
@@ -1192,7 +1192,7 @@ Configure test infrastructure and helpers.
 
 ---
 
-### Task 10.2 — Write Auth and Organization Service Tests
+### Task 10.2 — Write Auth and Organization Service Tests ✅ DONE
 
 **Backend**
 
@@ -1202,7 +1202,7 @@ OrganizationService: create org, add member, remove member, get user orgs.
 
 ---
 
-### Task 10.3 — Write Payout Batch and CSV Parser Tests
+### Task 10.3 — Write Payout Batch and CSV Parser Tests ✅ DONE
 
 **Backend**
 
@@ -1212,7 +1212,7 @@ PayoutBatchService: create from valid CSV, reject invalid, handle normalization,
 
 ---
 
-### Task 10.4 — Write Transaction and Bank Service Tests
+### Task 10.4 — Write Transaction and Bank Service Tests ✅ DONE
 
 **Backend**
 
@@ -1222,7 +1222,7 @@ BankService: search by name, search by alias, find by code.
 
 ---
 
-### Task 10.5 — Write Controller Integration Tests
+### Task 10.5 — Write Controller Integration Tests ✅ DONE
 
 **Backend**
 
@@ -1230,7 +1230,7 @@ Test all endpoints: auth required, status codes, response format, validation err
 
 ---
 
-### Task 10.6 — Set Up Frontend Testing
+### Task 10.6 — Set Up Frontend Testing ✅ DONE
 
 **Frontend**
 
@@ -1240,7 +1240,7 @@ Configure test setup.
 
 ---
 
-### Task 10.7 — Write Frontend Component Tests
+### Task 10.7 — Write Frontend Component Tests ✅ DONE
 
 **Frontend**
 
