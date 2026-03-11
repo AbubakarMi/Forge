@@ -1,5 +1,6 @@
 using ForgeApi.DTOs;
 using ForgeApi.DTOs.PayoutBatches;
+using ForgeApi.Jobs;
 using ForgeApi.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,13 +14,16 @@ public class PayoutBatchController : ControllerBase
 {
     private readonly IPayoutBatchService _batchService;
     private readonly ICurrentOrganizationProvider _orgProvider;
+    private readonly BatchProcessingQueue _batchQueue;
 
     public PayoutBatchController(
         IPayoutBatchService batchService,
-        ICurrentOrganizationProvider orgProvider)
+        ICurrentOrganizationProvider orgProvider,
+        BatchProcessingQueue batchQueue)
     {
         _batchService = batchService;
         _orgProvider = orgProvider;
+        _batchQueue = batchQueue;
     }
 
     /// <summary>
@@ -46,6 +50,9 @@ public class PayoutBatchController : ControllerBase
             file.FileName,
             _orgProvider.OrganizationId,
             _orgProvider.UserId);
+
+        // Enqueue batch for background processing
+        await _batchQueue.EnqueueAsync(result.BatchId);
 
         return Ok(ApiResponse<CreateBatchFromFileResponse>.Ok(result, "Batch created successfully."));
     }

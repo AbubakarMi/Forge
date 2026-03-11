@@ -1,5 +1,6 @@
 using System.Text;
 using ForgeApi.Configurations;
+using ForgeApi.Jobs;
 using ForgeApi.Middleware;
 using ForgeApi.Services;
 using ForgeApi.Utils;
@@ -108,6 +109,9 @@ builder.Services.AddHttpClient<IBankNormalizationClient, BankNormalizationClient
 });
 builder.Services.AddScoped<CurrentOrganizationProvider>();
 builder.Services.AddScoped<ICurrentOrganizationProvider>(sp => sp.GetRequiredService<CurrentOrganizationProvider>());
+builder.Services.AddScoped<ITransactionProcessingService, TransactionProcessingService>();
+builder.Services.AddSingleton<BatchProcessingQueue>();
+builder.Services.AddHostedService<BatchProcessingJob>();
 
 builder.Services.AddControllers();
 

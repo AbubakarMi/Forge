@@ -1,55 +1,49 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Card from '@/components/ui/Card'
+import { useRouter } from 'next/navigation'
 import { transactionService } from '@/services/transactionService'
-import { apiKeyService } from '@/services/apiKeyService'
-import { payoutService } from '@/services/payoutService'
-import { Transaction, ApiKey, Payout } from '@/types'
-import Badge from '@/components/ui/Badge'
+import { payoutBatchService } from '@/services/payoutBatchService'
+import { TransactionDetail, TransactionStats, PayoutBatch } from '@/types'
+import StatusBadge from '@/components/ui/StatusBadge'
+import StatCard from '@/components/ui/StatCard'
+import TransactionDetailModal from '@/components/dashboard/TransactionDetailModal'
 
-interface SummaryStats {
-  totalTransactions: number
-  activeApiKeys: number
-  pendingPayouts: number
-  totalVolume: number
+function formatNGN(amount: number): string {
+  return new Intl.NumberFormat('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
+    minimumFractionDigits: 2,
+  }).format(amount)
 }
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState<SummaryStats>({
-    totalTransactions: 0,
-    activeApiKeys: 0,
-    pendingPayouts: 0,
-    totalVolume: 0,
-  })
-  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([])
+  const router = useRouter()
+  const [stats, setStats] = useState<TransactionStats | null>(null)
+  const [recentBatches, setRecentBatches] = useState<PayoutBatch[]>([])
+  const [recentTransactions, setRecentTransactions] = useState<TransactionDetail[]>([])
+  const [activeBatchCount, setActiveBatchCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [selectedTx, setSelectedTx] = useState<TransactionDetail | null>(null)
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true)
       setError('')
       try {
-        const [transactions, keys, payouts] = await Promise.all([
-          transactionService.getTransactions(),
-          apiKeyService.getKeys(),
-          payoutService.getPayouts(),
+        const [statsData, batchesData, txData] = await Promise.all([
+          transactionService.getTransactionStats(),
+          payoutBatchService.getBatches({ pageSize: 5 }),
+          transactionService.getTransactions({ pageSize: 10 }),
         ])
 
-        const txList: Transaction[] = Array.isArray(transactions) ? transactions : []
-        const keyList: ApiKey[] = Array.isArray(keys) ? keys : []
-        const payoutList: Payout[] = Array.isArray(payouts) ? payouts : []
-
-        const totalVolume = txList.reduce((sum, tx) => sum + (tx.amount || 0), 0)
-
-        setStats({
-          totalTransactions: txList.length,
-          activeApiKeys: keyList.filter((k) => !k.isRevoked).length,
-          pendingPayouts: payoutList.filter((p) => p.status === 'pending').length,
-          totalVolume,
-        })
-        setRecentTransactions(txList.slice(0, 5))
+        setStats(statsData)
+        setRecentBatches(batchesData.data)
+        setRecentTransactions(txData.data)
+        setActiveBatchCount(
+          batchesData.data.filter((b) => b.status === 'processing' || b.status === 'pending').length
+        )
       } catch {
         setError('Failed to load dashboard data. Please refresh.')
       } finally {
@@ -60,140 +54,132 @@ export default function DashboardPage() {
     fetchData()
   }, [])
 
-  const summaryCards = [
-    {
-      label: 'Total Transactions',
-      value: loading ? '—' : stats.totalTransactions.toString(),
-      icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-        </svg>
-      ),
-      color: 'bg-forge-primary',
-      bg: 'bg-forge-primary/10',
-      text: 'text-forge-primary',
-    },
-    {
-      label: 'Active API Keys',
-      value: loading ? '—' : stats.activeApiKeys.toString(),
-      icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-        </svg>
-      ),
-      color: 'bg-green-600',
-      bg: 'bg-green-50',
-      text: 'text-green-600',
-    },
-    {
-      label: 'Pending Payouts',
-      value: loading ? '—' : stats.pendingPayouts.toString(),
-      icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-      ),
-      color: 'bg-forge-accent',
-      bg: 'bg-indigo-50',
-      text: 'text-forge-primary',
-    },
-    {
-      label: 'Total Volume',
-      value: loading ? '—' : `$${stats.totalVolume.toFixed(2)}`,
-      icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-        </svg>
-      ),
-      color: 'bg-forge-secondary',
-      bg: 'bg-purple-50',
-      text: 'text-forge-secondary',
-    },
-  ]
-
   return (
     <div className="max-w-7xl mx-auto space-y-8">
       {/* Page Header */}
-      <div>
-        <h1 className="text-3xl font-black text-forge-text tracking-tight">Overview</h1>
-        <p className="text-forge-muted mt-1 font-medium">Welcome back. Here&apos;s what&apos;s happening with your API infrastructure.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Overview</h1>
+          <p className="text-gray-500 mt-1">Welcome back. Here is a summary of your payout operations.</p>
+        </div>
+        <button
+          onClick={() => router.push('/dashboard/bulk-upload')}
+          className="bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+          </svg>
+          Upload CSV
+        </button>
       </div>
 
       {/* Error */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-600 px-6 py-4 rounded-2xl font-medium shadow-sm">
+        <div className="bg-red-50 border border-red-200 text-red-600 px-6 py-4 rounded-xl text-sm font-medium">
           {error}
         </div>
       )}
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {summaryCards.map((card, i) => (
-          <Card key={i} className="hover:translate-y-[-4px] transition-all duration-300">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-sm text-forge-muted font-bold uppercase tracking-widest">{card.label}</p>
-                <p className="text-3xl font-black text-forge-text mt-2">{card.value}</p>
-              </div>
-              <div className={`${card.bg} ${card.text} w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm border border-forge-border group-hover:scale-110 transition-all`}>
-                {card.icon}
-              </div>
+      {loading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+              <div className="h-4 w-24 bg-gray-200 rounded animate-pulse mb-3" />
+              <div className="h-8 w-32 bg-gray-200 rounded animate-pulse" />
             </div>
-          </Card>
-        ))}
-      </div>
-
-      {/* Recent Transactions */}
-      <Card title="Recent Transactions" className="shadow-sm">
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <svg className="animate-spin w-8 h-8 text-forge-primary" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-          </div>
-        ) : recentTransactions.length === 0 ? (
-          <div className="text-center py-20 px-6">
-            <div className="w-16 h-16 bg-forge-surface rounded-full flex items-center justify-center mx-auto mb-4 border border-forge-border">
-              <svg className="w-8 h-8 text-forge-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          ))}
+        </div>
+      ) : stats && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <StatCard
+            title="Total Transactions"
+            value={stats.totalTransactions.toLocaleString()}
+            color="bg-blue-500"
+            icon={
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
-            </div>
-            <p className="text-forge-text font-bold text-lg">No transactions yet.</p>
-            <p className="text-forge-muted mt-1">Start using the API to see data appearing here.</p>
+            }
+          />
+          <StatCard
+            title="Total Volume"
+            value={formatNGN(stats.totalAmount)}
+            color="bg-green-500"
+            icon={
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            }
+          />
+          <StatCard
+            title="Success Rate"
+            value={`${stats.successRate.toFixed(1)}%`}
+            color="bg-emerald-500"
+            icon={
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            }
+          />
+          <StatCard
+            title="Active Batches"
+            value={activeBatchCount.toString()}
+            color="bg-purple-500"
+            icon={
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+            }
+          />
+        </div>
+      )}
+
+      {/* Recent Batches */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">Recent Batches</h2>
+        </div>
+        {loading ? (
+          <div className="p-6 space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />
+            ))}
+          </div>
+        ) : recentBatches.length === 0 ? (
+          <div className="p-12 text-center">
+            <p className="text-gray-500 text-sm">No batches yet. Upload a CSV to get started.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-forge-border">
-                  <th className="text-left text-forge-muted font-bold uppercase tracking-wider text-[11px] pb-4 pr-4">ID</th>
-                  <th className="text-left text-forge-muted font-bold uppercase tracking-wider text-[11px] pb-4 pr-4">Amount</th>
-                  <th className="text-left text-forge-muted font-bold uppercase tracking-wider text-[11px] pb-4 pr-4">Currency</th>
-                  <th className="text-left text-forge-muted font-bold uppercase tracking-wider text-[11px] pb-4 pr-4">Status</th>
-                  <th className="text-left text-forge-muted font-bold uppercase tracking-wider text-[11px] pb-4">Date</th>
+                <tr className="border-b border-gray-200 bg-gray-50">
+                  <th className="text-left text-gray-500 font-medium px-6 py-3 text-xs uppercase tracking-wider">File Name</th>
+                  <th className="text-left text-gray-500 font-medium px-6 py-3 text-xs uppercase tracking-wider">Records</th>
+                  <th className="text-left text-gray-500 font-medium px-6 py-3 text-xs uppercase tracking-wider">Amount</th>
+                  <th className="text-left text-gray-500 font-medium px-6 py-3 text-xs uppercase tracking-wider">Status</th>
+                  <th className="text-left text-gray-500 font-medium px-6 py-3 text-xs uppercase tracking-wider">Date</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-forge-border/30">
-                {recentTransactions.map((tx) => (
-                  <tr key={tx.id} className="hover:bg-forge-surface/50 transition-colors group">
-                    <td className="py-5 pr-4">
-                      <span className="font-mono text-xs bg-forge-surface text-forge-text px-2 py-1 rounded border border-forge-border">
-                        {tx.id.length > 12 ? `${tx.id.slice(0, 8)}...` : tx.id}
-                      </span>
+              <tbody className="divide-y divide-gray-100">
+                {recentBatches.map((batch) => (
+                  <tr
+                    key={batch.id}
+                    onClick={() => router.push(`/dashboard/batches/${batch.id}`)}
+                    className="hover:bg-gray-50 transition-colors cursor-pointer"
+                  >
+                    <td className="px-6 py-4 font-medium text-gray-900">{batch.fileName}</td>
+                    <td className="px-6 py-4 text-gray-600">{batch.totalRecords.toLocaleString()}</td>
+                    <td className="px-6 py-4 font-semibold text-gray-900">{formatNGN(batch.totalAmount)}</td>
+                    <td className="px-6 py-4">
+                      <StatusBadge status={batch.status} />
                     </td>
-                    <td className="py-5 pr-4 font-black text-forge-text text-base">
-                      ${tx.amount.toFixed(2)}
-                    </td>
-                    <td className="py-5 pr-4 text-forge-muted font-bold uppercase tracking-tight group-hover:text-forge-text transition-colors">{tx.currency}</td>
-                    <td className="py-5 pr-4">
-                      <Badge status={tx.status as 'success' | 'pending' | 'failed'} />
-                    </td>
-                    <td className="py-5 text-forge-muted font-medium group-hover:text-forge-text transition-colors">
-                      {new Date(tx.createdAt).toLocaleDateString('en-US', {
+                    <td className="px-6 py-4 text-gray-500">
+                      {new Date(batch.createdAt).toLocaleDateString('en-US', {
                         month: 'short',
                         day: 'numeric',
-                        year: 'numeric'
+                        year: 'numeric',
                       })}
                     </td>
                   </tr>
@@ -202,7 +188,65 @@ export default function DashboardPage() {
             </table>
           </div>
         )}
-      </Card>
+      </div>
+
+      {/* Recent Transactions */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">Recent Transactions</h2>
+        </div>
+        {loading ? (
+          <div className="p-6 space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />
+            ))}
+          </div>
+        ) : recentTransactions.length === 0 ? (
+          <div className="p-12 text-center">
+            <p className="text-gray-500 text-sm">No transactions yet. Upload a batch to start processing.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 bg-gray-50">
+                  <th className="text-left text-gray-500 font-medium px-6 py-3 text-xs uppercase tracking-wider">Recipient</th>
+                  <th className="text-left text-gray-500 font-medium px-6 py-3 text-xs uppercase tracking-wider">Bank</th>
+                  <th className="text-left text-gray-500 font-medium px-6 py-3 text-xs uppercase tracking-wider">Amount</th>
+                  <th className="text-left text-gray-500 font-medium px-6 py-3 text-xs uppercase tracking-wider">Status</th>
+                  <th className="text-left text-gray-500 font-medium px-6 py-3 text-xs uppercase tracking-wider">Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {recentTransactions.map((tx) => (
+                  <tr
+                    key={tx.id}
+                    onClick={() => setSelectedTx(tx)}
+                    className="hover:bg-gray-50 transition-colors cursor-pointer"
+                  >
+                    <td className="px-6 py-4 font-medium text-gray-900">{tx.recipientName}</td>
+                    <td className="px-6 py-4 text-gray-600">{tx.normalizedBankName || tx.rawBankName}</td>
+                    <td className="px-6 py-4 font-semibold text-gray-900">{formatNGN(tx.amount)}</td>
+                    <td className="px-6 py-4">
+                      <StatusBadge status={tx.status} />
+                    </td>
+                    <td className="px-6 py-4 text-gray-500">
+                      {new Date(tx.createdAt).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Detail Modal */}
+      <TransactionDetailModal transaction={selectedTx} onClose={() => setSelectedTx(null)} />
     </div>
   )
 }
