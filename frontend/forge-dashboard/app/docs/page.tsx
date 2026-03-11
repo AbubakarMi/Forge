@@ -335,7 +335,7 @@ const endpoints: Endpoint[] = [
 /* ------------------------------------------------------------------ */
 const codeExamples: Record<CodeTab, string> = {
   curl: `curl -X POST https://api.forgeapi.com/api/v1/payout-batches \\
-  -H "X-Api-Key: forge_abc123..." \\
+  -H "X-Api-Key: forge_your_api_key_here" \\
   -H "Content-Type: application/json" \\
   -d '{
     "payments": [
@@ -350,7 +350,7 @@ const codeExamples: Record<CodeTab, string> = {
   javascript: `const response = await fetch('https://api.forgeapi.com/api/v1/payout-batches', {
   method: 'POST',
   headers: {
-    'X-Api-Key': 'forge_abc123...',
+    'X-Api-Key': 'forge_your_api_key_here',
     'Content-Type': 'application/json',
   },
   body: JSON.stringify({
@@ -371,7 +371,7 @@ console.log(data)`,
 
 response = requests.post(
     'https://api.forgeapi.com/api/v1/payout-batches',
-    headers={'X-Api-Key': 'forge_abc123...'},
+    headers={'X-Api-Key': 'forge_your_api_key_here'},
     json={
         'payments': [
             {
@@ -690,7 +690,7 @@ export default function DocsPage() {
                 Dashboard
               </Link>.
             </p>
-            <CodeBlock code={`curl -H "X-Api-Key: forge_abc123..." https://api.forgeapi.com/api/v1/banks`} />
+            <CodeBlock code={`curl -H "X-Api-Key: forge_your_api_key_here" https://api.forgeapi.com/api/v1/banks`} />
 
             <div className="mt-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-3">Permissions</h3>

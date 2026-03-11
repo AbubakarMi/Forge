@@ -68,14 +68,14 @@ const steps: Step[] = [
     title: 'Make Your First API Call',
     description: 'Test your API key by fetching the list of supported banks. This is a read-only endpoint that confirms your key is working.',
     code: `curl -X GET https://api.forgeapi.com/api/v1/banks \\
-  -H "X-Api-Key: forge_abc123..."`,
+  -H "X-Api-Key: forge_your_api_key_here"`,
   },
   {
     number: 5,
     title: 'Create Your First Payout',
     description: 'Send a single payout to a recipient. The payment will be validated against the bank registry and queued for processing.',
     code: `curl -X POST https://api.forgeapi.com/api/v1/payouts \\
-  -H "X-Api-Key: forge_abc123..." \\
+  -H "X-Api-Key: forge_your_api_key_here" \\
   -H "Content-Type: application/json" \\
   -d '{
     "recipientName": "John Doe",
@@ -89,7 +89,7 @@ const steps: Step[] = [
     title: 'Check Results',
     description: 'Query the transaction status to see if your payout was processed successfully. Replace the transaction ID with the one returned from step 5.',
     code: `curl -X GET https://api.forgeapi.com/api/v1/transactions/txn_xyz789 \\
-  -H "X-Api-Key: forge_abc123..."`,
+  -H "X-Api-Key: forge_your_api_key_here"`,
   },
 ]
 
