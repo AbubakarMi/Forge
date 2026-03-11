@@ -1,3 +1,4 @@
+using ForgeApi.DTOs;
 using ForgeApi.DTOs.Auth;
 using ForgeApi.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -16,35 +17,20 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("register")]
-    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<AuthResponse>> Register([FromBody] RegisterRequest request)
+    [ProducesResponseType(typeof(ApiResponse<AuthResponse>), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Register([FromBody] RegisterRequest request)
     {
-        try
-        {
-            var response = await _authService.RegisterAsync(request);
-            return CreatedAtAction(nameof(Register), response);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(new { error = ex.Message });
-        }
+        var response = await _authService.RegisterAsync(request);
+        return StatusCode(201, ApiResponse<AuthResponse>.Ok(response, "Registration successful."));
     }
 
     [HttpPost("login")]
-    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<AuthResponse>> Login([FromBody] LoginRequest request)
+    [ProducesResponseType(typeof(ApiResponse<AuthResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
-        try
-        {
-            var response = await _authService.LoginAsync(request);
-            return Ok(response);
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            return Unauthorized(new { error = ex.Message });
-        }
+        var response = await _authService.LoginAsync(request);
+        return Ok(ApiResponse<AuthResponse>.Ok(response, "Login successful."));
     }
 }

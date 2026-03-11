@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using ForgeApi.DTOs;
 using ForgeApi.DTOs.Transactions;
 using ForgeApi.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -19,15 +20,15 @@ public class TransactionController : ControllerBase
     }
 
     [HttpGet]
-    [ProducesResponseType(typeof(IEnumerable<TransactionResponse>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<IEnumerable<TransactionResponse>>> GetAll()
+    [ProducesResponseType(typeof(ApiResponse<IEnumerable<TransactionResponse>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetAll()
     {
         var userId = GetUserId();
-        if (userId == Guid.Empty) return Unauthorized();
+        if (userId == Guid.Empty) return Unauthorized(ApiResponse.Fail("Invalid token."));
 
         var transactions = await _transactionService.GetTransactionsAsync(userId);
-        return Ok(transactions);
+        return Ok(ApiResponse<IEnumerable<TransactionResponse>>.Ok(transactions));
     }
 
     private Guid GetUserId()

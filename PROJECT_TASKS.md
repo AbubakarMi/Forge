@@ -144,7 +144,7 @@ Update types/index.ts with all new types:
 
 ---
 
-### Task 2.1 — Create Standard API Response Wrapper
+### Task 2.1 — Create Standard API Response Wrapper ✅ DONE
 
 **Backend**
 
@@ -159,7 +159,7 @@ Update all existing controllers to return this format.
 
 ---
 
-### Task 2.2 — Create Custom Exception Classes
+### Task 2.2 — Create Custom Exception Classes ✅ DONE
 
 **Backend**
 
@@ -173,7 +173,7 @@ Each exception carries a message and optional error details.
 
 ---
 
-### Task 2.3 — Update Exception Middleware
+### Task 2.3 — Update Exception Middleware ✅ DONE
 
 **Backend**
 
@@ -189,7 +189,7 @@ Update Middleware/ExceptionMiddleware.cs:
 
 ---
 
-### Task 2.4 — Add Request Validation
+### Task 2.4 — Add Request Validation ✅ DONE
 
 **Backend**
 
@@ -199,7 +199,7 @@ Add FluentValidation or DataAnnotations to all existing and new DTOs:
 
 ---
 
-### Task 2.5 — Create Toast Notification System
+### Task 2.5 — Create Toast Notification System ✅ DONE
 
 **Frontend**
 
@@ -209,7 +209,7 @@ Create hooks/useToast.ts — hook to trigger toasts from any component.
 
 ---
 
-### Task 2.6 — Update API Client Error Handling
+### Task 2.6 — Update API Client Error Handling ✅ DONE
 
 **Frontend**
 

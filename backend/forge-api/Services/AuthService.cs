@@ -1,5 +1,6 @@
 using ForgeApi.Data;
 using ForgeApi.DTOs.Auth;
+using ForgeApi.Exceptions;
 using ForgeApi.Models;
 using ForgeApi.Utils;
 using Microsoft.EntityFrameworkCore;
@@ -29,7 +30,7 @@ public class AuthService : IAuthService
             .AnyAsync(u => u.Email == request.Email);
 
         if (exists)
-            throw new InvalidOperationException("A user with this email already exists.");
+            throw new ConflictException("A user with this email already exists.");
 
         var user = new User
         {

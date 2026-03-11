@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using ForgeApi.DTOs;
 using ForgeApi.DTOs.Payouts;
 using ForgeApi.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -19,15 +20,15 @@ public class PayoutController : ControllerBase
     }
 
     [HttpGet]
-    [ProducesResponseType(typeof(IEnumerable<PayoutResponse>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<IEnumerable<PayoutResponse>>> GetAll()
+    [ProducesResponseType(typeof(ApiResponse<IEnumerable<PayoutResponse>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetAll()
     {
         var userId = GetUserId();
-        if (userId == Guid.Empty) return Unauthorized();
+        if (userId == Guid.Empty) return Unauthorized(ApiResponse.Fail("Invalid token."));
 
         var payouts = await _payoutService.GetPayoutsAsync(userId);
-        return Ok(payouts);
+        return Ok(ApiResponse<IEnumerable<PayoutResponse>>.Ok(payouts));
     }
 
     private Guid GetUserId()
