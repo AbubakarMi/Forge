@@ -99,6 +99,13 @@ builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<ITransactionValidationService, TransactionValidationService>();
 builder.Services.AddScoped<IOrganizationService, OrganizationService>();
 builder.Services.AddScoped<IBankService, BankService>();
+builder.Services.AddScoped<ICsvParserService, CsvParserService>();
+builder.Services.AddScoped<IPayoutBatchService, PayoutBatchService>();
+builder.Services.AddHttpClient<IBankNormalizationClient, BankNormalizationClient>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration.GetValue<string>("AiService:BaseUrl") ?? "http://localhost:8000");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
 builder.Services.AddScoped<CurrentOrganizationProvider>();
 builder.Services.AddScoped<ICurrentOrganizationProvider>(sp => sp.GetRequiredService<CurrentOrganizationProvider>());
 

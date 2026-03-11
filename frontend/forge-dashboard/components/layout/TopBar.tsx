@@ -9,8 +9,11 @@ const pageTitles: Record<string, string> = {
   '/dashboard/transactions': 'Transactions',
   '/dashboard/payouts': 'Payouts',
   '/dashboard/banks': 'Bank Registry',
+  '/dashboard/normalization': 'AI Normalization',
   '/dashboard/organization': 'Organization',
   '/dashboard/organization/members': 'Team Members',
+  '/dashboard/bulk-upload': 'Bulk Upload',
+  '/dashboard/payout-batches': 'Payout Batches',
 }
 
 function getPageTitle(pathname: string): string {

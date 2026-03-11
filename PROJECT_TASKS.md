@@ -634,7 +634,7 @@ Create components/ui/BankSelector.tsx:
 
 ---
 
-### Task 5.1 — Set Up Python AI Service Project
+### Task 5.1 — Set Up Python AI Service Project ✅ DONE
 
 **AI Service**
 
@@ -648,7 +648,7 @@ Create data/banks.json — all Nigerian banks with codes and aliases (synced wit
 
 ---
 
-### Task 5.2 — Build Text Preprocessor
+### Task 5.2 — Build Text Preprocessor ✅ DONE
 
 **AI Service**
 
@@ -661,7 +661,7 @@ Create normalization/preprocessor.py:
 
 ---
 
-### Task 5.3 — Build Embedding Generator
+### Task 5.3 — Build Embedding Generator ✅ DONE
 
 **AI Service**
 
@@ -673,7 +673,7 @@ Create normalization/embeddings.py:
 
 ---
 
-### Task 5.4 — Build Similarity Matching Engine
+### Task 5.4 — Build Similarity Matching Engine ✅ DONE
 
 **AI Service**
 
@@ -687,7 +687,7 @@ Create normalization/matcher.py:
 
 ---
 
-### Task 5.5 — Create Normalization API Endpoints
+### Task 5.5 — Create Normalization API Endpoints ✅ DONE
 
 **AI Service**
 
@@ -709,7 +709,7 @@ GET /health — health check
 
 ---
 
-### Task 5.6 — Create Backend Normalization Client
+### Task 5.6 — Create Backend Normalization Client ✅ DONE
 
 **Backend**
 
@@ -724,7 +724,7 @@ Create DTOs/Normalization/:
 
 ---
 
-### Task 5.7 — Create Normalization Test Page
+### Task 5.7 — Create Normalization Test Page ✅ DONE
 
 **Frontend**
 
@@ -741,7 +741,7 @@ Create app/dashboard/normalization/page.tsx:
 
 ---
 
-### Task 6.1 — Create CSV Parser Service
+### Task 6.1 — Create CSV Parser Service ✅ DONE
 
 **Backend**
 
@@ -754,7 +754,7 @@ Return ParseResult with valid records list and errors list.
 
 ---
 
-### Task 6.2 — Create Payout Batch DTOs
+### Task 6.2 — Create Payout Batch DTOs ✅ DONE
 
 **Backend**
 
@@ -767,7 +767,7 @@ Create DTOs/PayoutBatches/:
 
 ---
 
-### Task 6.3 — Create Payout Batch Service
+### Task 6.3 — Create Payout Batch Service ✅ DONE
 
 **Backend**
 
@@ -788,7 +788,7 @@ All methods must verify the batch belongs to the requesting organization (defens
 
 ---
 
-### Task 6.4 — Create Payout Batch Controller
+### Task 6.4 — Create Payout Batch Controller ✅ DONE
 
 **Backend**
 
@@ -804,7 +804,7 @@ Validate: CSV type, 10MB max, 10,000 rows max, required columns, no empty files.
 
 ---
 
-### Task 6.5 — Create Payout Batch Frontend Service
+### Task 6.5 — Create Payout Batch Frontend Service ✅ DONE
 
 **Frontend**
 
@@ -818,7 +818,7 @@ Create services/payoutBatchService.ts:
 
 ---
 
-### Task 6.6 — Create Reusable UI Components for Bulk Upload
+### Task 6.6 — Create Reusable UI Components for Bulk Upload ✅ DONE
 
 **Frontend**
 
@@ -838,7 +838,7 @@ Create components/ui/FilterBar.tsx — status dropdown, date range, search input
 
 ---
 
-### Task 6.7 — Create Bulk Upload Page
+### Task 6.7 — Create Bulk Upload Page ✅ DONE
 
 **Frontend**
 
@@ -854,7 +854,7 @@ Step 4 — Processing: animated progress bar, live counters, redirect to batch d
 
 ---
 
-### Task 6.8 — Create Payout Batches List Page
+### Task 6.8 — Create Payout Batches List Page ✅ DONE
 
 **Frontend**
 
@@ -869,7 +869,7 @@ Update Sidebar — add Bulk Upload and Payout Batches links.
 
 ---
 
-### Task 6.9 — Create Batch Detail Page
+### Task 6.9 — Create Batch Detail Page ✅ DONE
 
 **Frontend**
 
