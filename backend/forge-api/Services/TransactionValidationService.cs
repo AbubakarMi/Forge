@@ -107,11 +107,16 @@ public class TransactionValidationService : ITransactionValidationService
         }
 
         // NUBAN check digit validation (if bank code is available)
-        if (!string.IsNullOrEmpty(bankCode) && bankCode.Length >= 3)
+        // Skip for PSBs (1xxxxx), MFBs (09xxxx), and mobile money (5xxxxx)
+        // — these institutions may use non-NUBAN account number formats
+        if (!string.IsNullOrEmpty(bankCode) && bankCode.Length >= 3
+            && !bankCode.StartsWith("1")    // Payment Service Banks (OPay, PalmPay, etc.)
+            && !bankCode.StartsWith("09")   // Microfinance Banks (Kuda, Moniepoint, etc.)
+            && !bankCode.StartsWith("5"))   // Mobile Money Operators
         {
             if (!ValidateNubanCheckDigit(bankCode, cleaned))
             {
-                errors.Add("Account number failed NUBAN check digit validation. Verify the account number and bank.");
+                errors.Add($"The account number {cleaned} does not match bank code {bankCode}. Please double-check the account number and bank name.");
             }
         }
 

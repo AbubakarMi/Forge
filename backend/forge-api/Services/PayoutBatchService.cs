@@ -15,6 +15,7 @@ public interface IPayoutBatchService
     Task<PayoutBatchDetailResponse> GetBatchDetailAsync(Guid batchId, Guid orgId);
     Task<PayoutBatchSummaryResponse> GetBatchSummaryAsync(Guid batchId, Guid orgId);
     Task RetryFailedTransactionsAsync(Guid batchId, Guid orgId, Guid userId);
+    Task<int> ConfirmDuplicatesAsync(Guid batchId, Guid orgId, Guid userId);
     Task CancelBatchAsync(Guid batchId, Guid orgId, Guid userId);
 }
 
@@ -391,6 +392,52 @@ public class PayoutBatchService : IPayoutBatchService
             userId,
             orgId,
             details: $"Retried {failedTransactions.Count} failed transactions.");
+    }
+
+    public async Task<int> ConfirmDuplicatesAsync(Guid batchId, Guid orgId, Guid userId)
+    {
+        var batch = await _context.PayoutBatches
+            .Include(b => b.Transactions)
+            .FirstOrDefaultAsync(b => b.Id == batchId)
+            ?? throw new NotFoundException($"Batch '{batchId}' not found.");
+
+        if (batch.OrganizationId != orgId)
+            throw new ForbiddenException();
+
+        var duplicateTransactions = batch.Transactions
+            .Where(t => t.Status == "failed"
+                && t.FailureReason != null
+                && t.FailureReason.Contains("duplicate", StringComparison.OrdinalIgnoreCase)
+                && t.RetryCount < _limits.MaxRetryCount)
+            .ToList();
+
+        if (duplicateTransactions.Count == 0)
+            throw new AppValidationException("No duplicate-flagged transactions to confirm.");
+
+        foreach (var tx in duplicateTransactions)
+        {
+            tx.Status = "pending";
+            tx.RetryCount++;
+            tx.FailureReason = null;
+        }
+
+        batch.PendingCount += duplicateTransactions.Count;
+        batch.FailedCount -= duplicateTransactions.Count;
+
+        if (batch.Status is "completed" or "failed" or "partially_failed")
+            batch.Status = "pending";
+
+        await _context.SaveChangesAsync();
+
+        await _audit.LogAsync(
+            "batch.confirm_duplicates",
+            "PayoutBatch",
+            batch.Id.ToString(),
+            userId,
+            orgId,
+            details: $"Confirmed {duplicateTransactions.Count} duplicate-flagged transactions as not duplicates.");
+
+        return duplicateTransactions.Count;
     }
 
     public async Task CancelBatchAsync(Guid batchId, Guid orgId, Guid userId)

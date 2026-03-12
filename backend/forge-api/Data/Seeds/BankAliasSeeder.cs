@@ -212,27 +212,22 @@ public static class BankAliasSeeder
             // TIER 2 — Payment Service Banks & Digital Banks
             // ═══════════════════════════════════════════════════════════════
 
-            ["999992"] = new[] { // OPay
+            ["100004"] = new[] { // OPay (PSB code 100004)
                 "OPay", "Opay", "O'Pay", "Opera Pay", "OPay Digital",
                 "Opay Bank", "OPay PSB", "Opay Payment"
             },
 
-            ["999991"] = new[] { // PalmPay
+            ["100033"] = new[] { // PalmPay (PSB code 100033 — same as bank seeder)
                 "PalmPay", "Palm Pay", "Palmpay", "Palm Pay Bank",
                 "PalmPay PSB"
             },
 
-            ["100004"] = new[] { // Kuda
+            ["090267"] = new[] { // Kuda (MFB code 090267)
                 "Kuda", "Kuda Bank", "Kuda Microfinance", "Kuda MFB",
-                "Kuda Bnk"
+                "Kuda Bnk", "Kuda Microfinance Bank"
             },
 
-            ["090267"] = new[] { // Kuda MFB
-                "Kuda", "Kuda Bank", "Kuda Microfinance Bank",
-                "Kuda MFB"
-            },
-
-            ["100033"] = new[] { // Moniepoint
+            ["090405"] = new[] { // Moniepoint (MFB code 090405)
                 "Moniepoint", "Monie Point", "MoniePoint MFB",
                 "Moniepoint Bank", "TeamApt", "Moniepoint Microfinance"
             },

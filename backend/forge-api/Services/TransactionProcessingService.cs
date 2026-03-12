@@ -171,12 +171,12 @@ public class TransactionProcessingService : ITransactionProcessingService
                 var bank = transaction.Bank;
                 if (bank == null || !bank.IsActive)
                 {
-                    throw new AppValidationException("Bank is not active or does not exist.");
+                    throw new AppValidationException($"Bank '{transaction.RawBankName}' is inactive or not recognized. Please verify the bank name.");
                 }
             }
             else
             {
-                throw new AppValidationException("No bank assigned to this transaction.");
+                throw new AppValidationException($"Could not identify bank for '{transaction.RawBankName}'. Please check the bank name spelling.");
             }
 
             // Validate account number (NUBAN)

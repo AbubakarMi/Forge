@@ -82,6 +82,13 @@ export const payoutBatchService = {
     return response.data.data
   },
 
+  async confirmDuplicates(id: string): Promise<{ confirmedCount: number }> {
+    const response = await apiClient.post<ApiResponseWrapper<{ confirmedCount: number }>>(
+      `/api/payout-batches/${id}/confirm-duplicates`
+    )
+    return response.data.data
+  },
+
   async cancelBatch(id: string): Promise<void> {
     await apiClient.post(`/api/payout-batches/${id}/cancel`)
   },

@@ -67,15 +67,18 @@ public class PayoutBatchController : ControllerBase
         var (batches, totalCount) = await _batchService.GetBatchesAsync(
             _orgProvider.OrganizationId, filters);
 
-        return Ok(new
+        var totalPages = (int)Math.Ceiling((double)totalCount / filters.PageSize);
+
+        var result = new
         {
-            Success = true,
-            Message = "",
             Data = batches,
             TotalCount = totalCount,
+            TotalPages = totalPages,
             Page = filters.Page,
             PageSize = filters.PageSize
-        });
+        };
+
+        return Ok(ApiResponse<object>.Ok(result));
     }
 
     /// <summary>
@@ -113,6 +116,25 @@ public class PayoutBatchController : ControllerBase
         await _batchService.RetryFailedTransactionsAsync(
             id, _orgProvider.OrganizationId, _orgProvider.UserId);
         return Ok(ApiResponse.Ok(message: "Failed transactions queued for retry."));
+    }
+
+    /// <summary>
+    /// Confirm duplicate-flagged transactions as not duplicates and re-queue them.
+    /// </summary>
+    [HttpPost("{id:guid}/confirm-duplicates")]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ConfirmDuplicates(Guid id)
+    {
+        var count = await _batchService.ConfirmDuplicatesAsync(
+            id, _orgProvider.OrganizationId, _orgProvider.UserId);
+
+        // Re-enqueue batch for processing
+        await _batchQueue.EnqueueAsync(id);
+
+        return Ok(ApiResponse<object>.Ok(
+            new { confirmedCount = count },
+            $"{count} duplicate-flagged transaction(s) confirmed and re-queued."));
     }
 
     /// <summary>
