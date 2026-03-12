@@ -9,11 +9,12 @@ import StatusBadge from '@/components/ui/StatusBadge'
 import EmptyState from '@/components/ui/EmptyState'
 import { showToast } from '@/hooks/useToast'
 
-const STATUS_OPTIONS = ['all', 'pending', 'processing', 'completed', 'partially_failed', 'failed', 'cancelled']
+const STATUS_OPTIONS = ['all', 'pending', 'scheduled', 'processing', 'completed', 'partially_failed', 'failed', 'cancelled']
 
 const STATUS_LABELS: Record<string, string> = {
   all: 'All',
   pending: 'Pending',
+  scheduled: 'Scheduled',
   processing: 'Processing',
   completed: 'Completed',
   partially_failed: 'Partial',
@@ -182,6 +183,7 @@ export default function PayoutBatchesPage() {
                 <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Batch Name</th>
                 <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Records</th>
                 <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Amount</th>
+                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</th>
                 <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Success / Failed</th>
                 <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Created</th>
@@ -197,6 +199,21 @@ export default function PayoutBatchesPage() {
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">{batch.batchName || batch.fileName}</td>
                   <td className="px-6 py-4 text-sm text-gray-600">{batch.totalRecords}</td>
                   <td className="px-6 py-4 text-sm text-gray-900 font-medium">{formatCurrency(batch.totalAmount)}</td>
+                  <td className="px-6 py-4">
+                    {batch.isRecurring ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-700">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                        {batch.recurringInterval}
+                      </span>
+                    ) : batch.paymentType === 'scheduled' ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        Scheduled
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-400">Immediate</span>
+                    )}
+                  </td>
                   <td className="px-6 py-4">
                     <StatusBadge status={batch.status} />
                   </td>

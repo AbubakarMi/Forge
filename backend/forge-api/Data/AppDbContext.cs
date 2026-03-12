@@ -119,6 +119,8 @@ public class AppDbContext : DbContext
             entity.Property(pb => pb.BatchName).HasMaxLength(200);
             entity.Property(pb => pb.TotalAmount).HasColumnType("numeric(18,2)");
             entity.Property(pb => pb.Status).IsRequired().HasMaxLength(30).HasDefaultValue("draft");
+            entity.Property(pb => pb.PaymentType).IsRequired().HasMaxLength(20).HasDefaultValue("immediate");
+            entity.Property(pb => pb.RecurringInterval).HasMaxLength(20);
 
             entity.HasOne(pb => pb.Organization)
                   .WithMany(o => o.PayoutBatches)

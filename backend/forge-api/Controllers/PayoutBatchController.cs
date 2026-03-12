@@ -63,12 +63,38 @@ public class PayoutBatchController : ControllerBase
     public async Task<IActionResult> ConfirmBatch(Guid id, [FromBody] ConfirmBatchRequest request)
     {
         await _batchService.ConfirmBatchAsync(
-            id, request.BatchName, _orgProvider.OrganizationId, _orgProvider.UserId);
+            id, request, _orgProvider.OrganizationId, _orgProvider.UserId);
 
-        // Now enqueue for background processing
-        await _batchQueue.EnqueueAsync(id);
+        // Only enqueue for immediate processing (not scheduled)
+        if (request.PaymentType is null or "immediate")
+            await _batchQueue.EnqueueAsync(id);
 
         return Ok(ApiResponse.Ok(message: "Batch confirmed and queued for processing."));
+    }
+
+    /// <summary>
+    /// Add recipients to an existing batch via CSV upload.
+    /// </summary>
+    [HttpPost("{id:guid}/add-recipients")]
+    [ProducesResponseType(typeof(ApiResponse<AddRecipientsToBatchResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> AddRecipients(Guid id, [FromForm] IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest(ApiResponse.Fail("File is required and must not be empty."));
+
+        if (file.Length > 10 * 1024 * 1024)
+            return BadRequest(ApiResponse.Fail("File size must not exceed 10 MB."));
+
+        var extension = Path.GetExtension(file.FileName)?.ToLowerInvariant();
+        if (extension != ".csv")
+            return BadRequest(ApiResponse.Fail("Only CSV files (.csv) are allowed."));
+
+        using var stream = file.OpenReadStream();
+        var result = await _batchService.AddRecipientsAsync(
+            id, stream, file.FileName, _orgProvider.OrganizationId, _orgProvider.UserId);
+
+        return Ok(ApiResponse<AddRecipientsToBatchResponse>.Ok(result, $"{result.AddedCount} recipient(s) added to batch."));
     }
 
     /// <summary>

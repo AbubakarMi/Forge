@@ -16,6 +16,13 @@ public class PayoutBatch
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? CompletedAt { get; set; }
 
+    // Scheduling
+    public string PaymentType { get; set; } = "immediate"; // immediate, scheduled, recurring
+    public DateTime? ScheduledAt { get; set; }
+    public bool IsRecurring { get; set; }
+    public string? RecurringInterval { get; set; } // monthly, biweekly, weekly
+    public DateTime? NextRunAt { get; set; }
+
     /// <summary>
     /// Optimistic concurrency token — prevents race conditions on batch counter updates.
     /// </summary>

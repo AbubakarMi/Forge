@@ -29,6 +29,11 @@ export default function PayoutBatchDetailPage() {
   const [exportingCsv, setExportingCsv] = useState(false)
   const [selectedTxn, setSelectedTxn] = useState<TransactionDetail | null>(null)
 
+  // Add recipients
+  const [showAddRecipients, setShowAddRecipients] = useState(false)
+  const [addFile, setAddFile] = useState<File | null>(null)
+  const [addingRecipients, setAddingRecipients] = useState(false)
+
   const loadBatch = useCallback(async () => {
     try {
       const [data, sum] = await Promise.all([
@@ -92,6 +97,25 @@ export default function PayoutBatchDetailPage() {
       showToast('error', 'Failed to export batch results.')
     } finally {
       setExportingCsv(false)
+    }
+  }
+
+  const handleAddRecipients = async () => {
+    if (!addFile) return
+    setAddingRecipients(true)
+    try {
+      const result = await payoutBatchService.addRecipients(id, addFile)
+      showToast('success', `${result.addedCount} recipient(s) added to batch.`)
+      if (result.failedCount > 0) {
+        showToast('warning', `${result.failedCount} record(s) failed validation.`)
+      }
+      setShowAddRecipients(false)
+      setAddFile(null)
+      await loadBatch()
+    } catch {
+      showToast('error', 'Failed to add recipients.')
+    } finally {
+      setAddingRecipients(false)
     }
   }
 
@@ -183,9 +207,38 @@ export default function PayoutBatchDetailPage() {
             Created {formatDate(batch.createdAt)}
             {batch.completedAt && <> &middot; Completed {formatDate(batch.completedAt)}</>}
           </p>
+          {(batch.isRecurring || batch.paymentType === 'scheduled') && (
+            <div className="flex items-center gap-3 ml-8 mt-1.5">
+              {batch.isRecurring && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-700">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                  Recurring {batch.recurringInterval}
+                </span>
+              )}
+              {batch.scheduledAt && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  {batch.status === 'scheduled' ? 'Scheduled for' : 'Was scheduled for'} {formatDate(batch.scheduledAt)}
+                </span>
+              )}
+              {batch.nextRunAt && batch.isRecurring && (
+                <span className="text-xs text-gray-500">
+                  Next run: {formatDate(batch.nextRunAt)}
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex gap-2">
+          {(batch.isRecurring || batch.paymentType === 'scheduled' || batch.status === 'completed' || batch.status === 'partially_failed') && (
+            <button
+              onClick={() => setShowAddRecipients(true)}
+              className="px-4 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors"
+            >
+              Add Recipients
+            </button>
+          )}
           <button
             onClick={handleExportCsv}
             disabled={exportingCsv}
@@ -456,6 +509,96 @@ export default function PayoutBatchDetailPage() {
         onConfirm={handleCancel}
         onCancel={() => setShowCancelConfirm(false)}
       />
+
+      {/* Add Recipients Modal */}
+      <AnimatePresence>
+        {showAddRecipients && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/40 z-40"
+              onClick={() => { setShowAddRecipients(false); setAddFile(null) }}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            >
+              <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-1">Add Recipients</h2>
+                <p className="text-sm text-gray-500 mb-4">
+                  Upload a CSV file with additional recipients. Same format as the original upload.
+                </p>
+
+                <div
+                  onClick={() => document.getElementById('addRecipientsFile')?.click()}
+                  className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all mb-4 ${
+                    addFile ? 'border-green-400 bg-green-50' : 'border-gray-300 hover:border-gray-400'
+                  }`}
+                >
+                  <input
+                    id="addRecipientsFile"
+                    type="file"
+                    accept=".csv"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0]
+                      if (f) {
+                        if (!f.name.endsWith('.csv')) {
+                          showToast('error', 'Only .csv files are accepted.')
+                          return
+                        }
+                        setAddFile(f)
+                      }
+                    }}
+                  />
+                  {addFile ? (
+                    <div>
+                      <svg className="w-8 h-8 mx-auto text-green-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <p className="text-sm font-medium text-gray-900">{addFile.name}</p>
+                      <p className="text-xs text-gray-400 mt-1">Click to replace</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <svg className="w-8 h-8 mx-auto text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                      <p className="text-sm text-gray-600">Click to select CSV file</p>
+                      <p className="text-xs text-gray-400 mt-1">name, bank, account_number, amount</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleAddRecipients}
+                    disabled={!addFile || addingRecipients}
+                    className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-forge-primary rounded-lg hover:bg-forge-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {addingRecipients ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Uploading...
+                      </span>
+                    ) : 'Upload & Add'}
+                  </button>
+                  <button
+                    onClick={() => { setShowAddRecipients(false); setAddFile(null) }}
+                    className="px-4 py-2.5 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

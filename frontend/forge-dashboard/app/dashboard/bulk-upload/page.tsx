@@ -31,6 +31,10 @@ export default function BulkUploadPage() {
   const [batchName, setBatchName] = useState('')
   const [batchNameError, setBatchNameError] = useState('')
   const [confirming, setConfirming] = useState(false)
+  const [paymentType, setPaymentType] = useState<'immediate' | 'scheduled' | 'recurring'>('immediate')
+  const [scheduledDate, setScheduledDate] = useState('')
+  const [scheduledTime, setScheduledTime] = useState('')
+  const [recurringInterval, setRecurringInterval] = useState<'weekly' | 'biweekly' | 'monthly'>('monthly')
 
   // Processing step
   const [processingDetail, setProcessingDetail] = useState<PayoutBatchDetail | null>(null)
@@ -229,15 +233,40 @@ export default function BulkUploadPage() {
       setBatchNameError('Batch name must be at least 3 characters.')
       return
     }
+    if (paymentType !== 'immediate' && !scheduledDate) {
+      setBatchNameError('Please select a date for scheduled/recurring payments.')
+      return
+    }
     setBatchNameError('')
     setConfirming(true)
     try {
-      await payoutBatchService.confirmBatch(uploadResult.batchId, name)
-      showToast('success', 'Batch confirmed and queued for processing.')
-      setStep('processing')
-      setProcessingDetail(null)
-      setSummary(null)
-      setProcessingInBackground(false)
+      const params: {
+        batchName: string
+        paymentType: string
+        scheduledAt?: string
+        recurringInterval?: string
+      } = { batchName: name, paymentType }
+
+      if (paymentType !== 'immediate' && scheduledDate) {
+        const dt = scheduledTime ? `${scheduledDate}T${scheduledTime}:00` : `${scheduledDate}T09:00:00`
+        params.scheduledAt = new Date(dt).toISOString()
+      }
+      if (paymentType === 'recurring') {
+        params.recurringInterval = recurringInterval
+      }
+
+      await payoutBatchService.confirmBatch(uploadResult.batchId, params)
+
+      if (paymentType === 'immediate') {
+        showToast('success', 'Batch confirmed and queued for processing.')
+        setStep('processing')
+        setProcessingDetail(null)
+        setSummary(null)
+        setProcessingInBackground(false)
+      } else {
+        showToast('success', `Batch scheduled${paymentType === 'recurring' ? ` (recurring ${recurringInterval})` : ''}.`)
+        router.push('/dashboard/payout-batches')
+      }
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
       setBatchNameError(msg || 'Failed to confirm batch. Please try a different name.')
@@ -262,6 +291,10 @@ export default function BulkUploadPage() {
     setNormProgress(0)
     setBatchName('')
     setBatchNameError('')
+    setPaymentType('immediate')
+    setScheduledDate('')
+    setScheduledTime('')
+    setRecurringInterval('monthly')
   }
 
   const stepLabels: { key: Step; label: string }[] = [
@@ -606,7 +639,7 @@ export default function BulkUploadPage() {
           </motion.div>
         )}
 
-        {/* Step 4: Create Batch (name it) */}
+        {/* Step 4: Create Batch (name + scheduling) */}
         {step === 'create' && uploadResult && (
           <motion.div key="create" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 max-w-lg mx-auto">
@@ -616,8 +649,8 @@ export default function BulkUploadPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                   </svg>
                 </div>
-                <h2 className="text-lg font-semibold text-gray-900">Name Your Batch</h2>
-                <p className="text-sm text-gray-500 mt-1">Give this batch a meaningful name so you can easily find it later.</p>
+                <h2 className="text-lg font-semibold text-gray-900">Create Batch</h2>
+                <p className="text-sm text-gray-500 mt-1">Name your batch and choose when to process payments.</p>
               </div>
 
               {/* Summary */}
@@ -639,7 +672,7 @@ export default function BulkUploadPage() {
               </div>
 
               {/* Batch name input */}
-              <div className="mb-6">
+              <div className="mb-5">
                 <label htmlFor="batchName" className="block text-sm font-medium text-gray-700 mb-2">
                   Batch Name
                 </label>
@@ -648,7 +681,7 @@ export default function BulkUploadPage() {
                   type="text"
                   value={batchName}
                   onChange={(e) => { setBatchName(e.target.value); setBatchNameError('') }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleConfirmBatch() }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && paymentType === 'immediate') handleConfirmBatch() }}
                   placeholder="e.g. March Salary, Vendor Payments Q1"
                   className={`w-full px-4 py-3 border rounded-lg text-sm focus:ring-2 focus:ring-forge-primary focus:border-transparent transition-colors ${
                     batchNameError ? 'border-red-300 bg-red-50' : 'border-gray-300'
@@ -661,11 +694,98 @@ export default function BulkUploadPage() {
                 <p className="text-xs text-gray-400 mt-1.5">Must be unique. You cannot create two batches with the same name.</p>
               </div>
 
+              {/* Payment type selector */}
+              <div className="mb-5">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Payment Type</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    { key: 'immediate' as const, label: 'Pay Now', icon: (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                    )},
+                    { key: 'scheduled' as const, label: 'Schedule', icon: (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    )},
+                    { key: 'recurring' as const, label: 'Recurring', icon: (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    )},
+                  ]).map(({ key, label, icon }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setPaymentType(key)}
+                      className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 text-sm font-medium transition-all ${
+                        paymentType === key
+                          ? 'border-forge-primary bg-forge-primary/5 text-forge-primary'
+                          : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                      }`}
+                    >
+                      {icon}
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Scheduling options */}
+              {paymentType !== 'immediate' && (
+                <div className="mb-5 space-y-4 bg-blue-50/50 rounded-lg border border-blue-100 p-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Date</label>
+                      <input
+                        type="date"
+                        value={scheduledDate}
+                        onChange={(e) => setScheduledDate(e.target.value)}
+                        min={new Date().toISOString().split('T')[0]}
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-forge-primary focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Time</label>
+                      <input
+                        type="time"
+                        value={scheduledTime}
+                        onChange={(e) => setScheduledTime(e.target.value)}
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-forge-primary focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+                  {paymentType === 'recurring' && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Repeat Every</label>
+                      <select
+                        value={recurringInterval}
+                        onChange={(e) => setRecurringInterval(e.target.value as 'weekly' | 'biweekly' | 'monthly')}
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-forge-primary focus:border-transparent"
+                      >
+                        <option value="weekly">Every Week</option>
+                        <option value="biweekly">Every 2 Weeks</option>
+                        <option value="monthly">Every Month</option>
+                      </select>
+                      <p className="text-xs text-blue-600 mt-1.5">
+                        Payments will automatically repeat on this schedule. You can add recipients later.
+                      </p>
+                    </div>
+                  )}
+                  {paymentType === 'scheduled' && (
+                    <p className="text-xs text-blue-600">
+                      Payment will be processed automatically at the selected date and time.
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Actions */}
               <div className="flex items-center gap-3">
                 <button
                   onClick={handleConfirmBatch}
-                  disabled={confirming || !batchName.trim()}
+                  disabled={confirming || !batchName.trim() || (paymentType !== 'immediate' && !scheduledDate)}
                   className="flex-1 px-5 py-3 text-sm font-semibold text-white bg-forge-primary rounded-lg hover:bg-forge-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {confirming ? (
@@ -673,8 +793,12 @@ export default function BulkUploadPage() {
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                       Confirming...
                     </span>
-                  ) : (
+                  ) : paymentType === 'immediate' ? (
                     'Confirm & Start Payment'
+                  ) : paymentType === 'scheduled' ? (
+                    'Schedule Payment'
+                  ) : (
+                    'Set Up Recurring Payment'
                   )}
                 </button>
                 <button onClick={() => setStep('review')}

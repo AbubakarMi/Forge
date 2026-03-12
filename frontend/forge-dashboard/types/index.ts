@@ -94,6 +94,11 @@ export interface PayoutBatch {
   failedCount: number
   pendingCount: number
   status: string
+  paymentType: string
+  scheduledAt: string | null
+  isRecurring: boolean
+  recurringInterval: string | null
+  nextRunAt: string | null
   createdAt: string
   completedAt: string | null
 }

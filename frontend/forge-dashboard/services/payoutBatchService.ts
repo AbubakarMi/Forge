@@ -82,8 +82,33 @@ export const payoutBatchService = {
     return response.data.data
   },
 
-  async confirmBatch(id: string, batchName: string): Promise<void> {
-    await apiClient.post(`/api/payout-batches/${id}/confirm`, { batchName })
+  async confirmBatch(id: string, params: {
+    batchName: string
+    paymentType?: string
+    scheduledAt?: string
+    recurringInterval?: string
+  }): Promise<void> {
+    await apiClient.post(`/api/payout-batches/${id}/confirm`, params)
+  },
+
+  async addRecipients(id: string, file: File): Promise<{
+    addedCount: number
+    failedCount: number
+    addedAmount: number
+    errors: { rowNumber: number; field: string; message: string }[]
+  }> {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await apiClient.post<ApiResponseWrapper<{
+      addedCount: number
+      failedCount: number
+      addedAmount: number
+      errors: { rowNumber: number; field: string; message: string }[]
+    }>>(`/api/payout-batches/${id}/add-recipients`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 60000,
+    })
+    return response.data.data
   },
 
   async confirmDuplicates(id: string): Promise<{ confirmedCount: number }> {

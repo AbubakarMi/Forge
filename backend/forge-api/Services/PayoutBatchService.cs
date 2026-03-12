@@ -11,7 +11,8 @@ namespace ForgeApi.Services;
 public interface IPayoutBatchService
 {
     Task<CreateBatchFromFileResponse> CreateBatchFromFileAsync(Stream file, string fileName, Guid orgId, Guid userId);
-    Task ConfirmBatchAsync(Guid batchId, string batchName, Guid orgId, Guid userId);
+    Task ConfirmBatchAsync(Guid batchId, ConfirmBatchRequest request, Guid orgId, Guid userId);
+    Task<AddRecipientsToBatchResponse> AddRecipientsAsync(Guid batchId, Stream file, string fileName, Guid orgId, Guid userId);
     Task<(List<PayoutBatchResponse> Batches, int TotalCount)> GetBatchesAsync(Guid orgId, BatchFilterRequest filters);
     Task<PayoutBatchDetailResponse> GetBatchDetailAsync(Guid batchId, Guid orgId);
     Task<PayoutBatchSummaryResponse> GetBatchSummaryAsync(Guid batchId, Guid orgId);
@@ -238,7 +239,7 @@ public class PayoutBatchService : IPayoutBatchService
         };
     }
 
-    public async Task ConfirmBatchAsync(Guid batchId, string batchName, Guid orgId, Guid userId)
+    public async Task ConfirmBatchAsync(Guid batchId, ConfirmBatchRequest request, Guid orgId, Guid userId)
     {
         var batch = await _context.PayoutBatches
             .FirstOrDefaultAsync(b => b.Id == batchId)
@@ -251,10 +252,10 @@ public class PayoutBatchService : IPayoutBatchService
             throw new AppValidationException("Only draft batches can be confirmed.");
 
         // Validate batch name is not empty
-        if (string.IsNullOrWhiteSpace(batchName))
+        if (string.IsNullOrWhiteSpace(request.BatchName))
             throw new AppValidationException("Batch name is required.");
 
-        batchName = batchName.Trim();
+        var batchName = request.BatchName.Trim();
 
         // Check for duplicate batch name within the org
         var duplicate = await _context.PayoutBatches
@@ -267,7 +268,34 @@ public class PayoutBatchService : IPayoutBatchService
             throw new AppValidationException($"A batch named '{batchName}' already exists. Please choose a different name.");
 
         batch.BatchName = batchName;
-        batch.Status = "pending";
+        batch.PaymentType = request.PaymentType ?? "immediate";
+
+        if (batch.PaymentType == "scheduled" && request.ScheduledAt.HasValue)
+        {
+            batch.ScheduledAt = request.ScheduledAt.Value.ToUniversalTime();
+            batch.Status = "scheduled";
+        }
+        else if (batch.PaymentType == "recurring" && !string.IsNullOrWhiteSpace(request.RecurringInterval))
+        {
+            batch.IsRecurring = true;
+            batch.RecurringInterval = request.RecurringInterval;
+            if (request.ScheduledAt.HasValue)
+            {
+                batch.ScheduledAt = request.ScheduledAt.Value.ToUniversalTime();
+                batch.NextRunAt = request.ScheduledAt.Value.ToUniversalTime();
+                batch.Status = "scheduled";
+            }
+            else
+            {
+                batch.NextRunAt = DateTime.UtcNow;
+                batch.Status = "pending";
+            }
+        }
+        else
+        {
+            batch.Status = "pending";
+        }
+
         await _context.SaveChangesAsync();
 
         await _audit.LogAsync(
@@ -276,7 +304,7 @@ public class PayoutBatchService : IPayoutBatchService
             batch.Id.ToString(),
             userId,
             orgId,
-            details: $"Batch confirmed with name: {batchName}");
+            details: $"Batch confirmed with name: {batchName}, type: {batch.PaymentType}");
     }
 
     public async Task<(List<PayoutBatchResponse> Batches, int TotalCount)> GetBatchesAsync(
@@ -315,6 +343,11 @@ public class PayoutBatchService : IPayoutBatchService
                 SuccessCount = b.SuccessCount,
                 FailedCount = b.FailedCount,
                 PendingCount = b.PendingCount,
+                PaymentType = b.PaymentType,
+                ScheduledAt = b.ScheduledAt,
+                IsRecurring = b.IsRecurring,
+                RecurringInterval = b.RecurringInterval,
+                NextRunAt = b.NextRunAt,
                 CreatedAt = b.CreatedAt,
                 CompletedAt = b.CompletedAt
             })
@@ -344,6 +377,11 @@ public class PayoutBatchService : IPayoutBatchService
             SuccessCount = batch.SuccessCount,
             FailedCount = batch.FailedCount,
             PendingCount = batch.PendingCount,
+            PaymentType = batch.PaymentType,
+            ScheduledAt = batch.ScheduledAt,
+            IsRecurring = batch.IsRecurring,
+            RecurringInterval = batch.RecurringInterval,
+            NextRunAt = batch.NextRunAt,
             CreatedAt = batch.CreatedAt,
             CompletedAt = batch.CompletedAt,
             Transactions = batch.Transactions.Select(t => new DTOs.PayoutBatches.TransactionResponse
@@ -362,6 +400,121 @@ public class PayoutBatchService : IPayoutBatchService
                 ProcessedAt = t.ProcessedAt,
                 CreatedAt = t.CreatedAt
             }).ToList()
+        };
+    }
+
+    public async Task<AddRecipientsToBatchResponse> AddRecipientsAsync(
+        Guid batchId, Stream file, string fileName, Guid orgId, Guid userId)
+    {
+        var batch = await _context.PayoutBatches
+            .FirstOrDefaultAsync(b => b.Id == batchId)
+            ?? throw new NotFoundException($"Batch '{batchId}' not found.");
+
+        if (batch.OrganizationId != orgId)
+            throw new ForbiddenException();
+
+        if (batch.Status is not ("pending" or "scheduled" or "completed" or "partially_failed"))
+            throw new AppValidationException($"Cannot add recipients to a batch with status '{batch.Status}'.");
+
+        // Parse CSV
+        var parseResult = await _csvParser.ParsePaymentFileAsync(file);
+        var errors = new List<BatchValidationError>(parseResult.Errors);
+
+        // Normalize bank names
+        var bankNames = parseResult.ValidRecords.Select(r => r.BankName).Distinct().ToList();
+        var normalizationResults = bankNames.Count > 0
+            ? await _bankNormalization.NormalizeBankNamesAsync(bankNames)
+            : new List<DTOs.Normalization.NormalizationResult>();
+
+        var normalizationMap = new Dictionary<string, DTOs.Normalization.NormalizationResult>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < bankNames.Count; i++)
+            normalizationMap[bankNames[i]] = normalizationResults[i];
+
+        var bankCodes = normalizationResults.Where(n => n.BankCode != null).Select(n => n.BankCode!).Distinct().ToList();
+        var banksById = new Dictionary<string, Models.Bank>(StringComparer.OrdinalIgnoreCase);
+        if (bankCodes.Count > 0)
+        {
+            var banks = await _context.Banks.Where(b => bankCodes.Contains(b.Code)).ToListAsync();
+            foreach (var bank in banks)
+                banksById[bank.Code] = bank;
+        }
+
+        var newTransactions = new List<Transaction>();
+        var addedAmount = 0m;
+
+        for (var i = 0; i < parseResult.ValidRecords.Count; i++)
+        {
+            var record = parseResult.ValidRecords[i];
+            var rowNumber = i + 2;
+            var rowErrors = new List<BatchValidationError>();
+
+            var normResult = normalizationMap.GetValueOrDefault(record.BankName);
+            Guid? bankId = null;
+            string? normalizedBankName = normResult?.NormalizedBank;
+            decimal? confidence = normResult?.Confidence;
+
+            if (normResult?.BankCode != null && banksById.TryGetValue(normResult.BankCode, out var bank))
+                bankId = bank.Id;
+
+            var amountErrors = _transactionValidation.ValidateAmount(record.Amount);
+            foreach (var err in amountErrors)
+                rowErrors.Add(new BatchValidationError { RowNumber = rowNumber, Field = "Amount", Message = err });
+
+            var accountErrors = _transactionValidation.ValidateAccountNumber(record.AccountNumber, normResult?.BankCode);
+            foreach (var err in accountErrors)
+                rowErrors.Add(new BatchValidationError { RowNumber = rowNumber, Field = "AccountNumber", Message = err });
+
+            if (rowErrors.Count > 0)
+                errors.AddRange(rowErrors);
+
+            var status = rowErrors.Count > 0 ? "failed" : "pending";
+            var failureReason = rowErrors.Count > 0 ? string.Join("; ", rowErrors.Select(e => e.Message)) : null;
+
+            var transaction = new Transaction
+            {
+                PayoutBatchId = batch.Id,
+                OrganizationId = orgId,
+                RecipientName = record.RecipientName,
+                RawBankName = record.BankName,
+                NormalizedBankName = normalizedBankName,
+                AccountNumber = record.AccountNumber,
+                Amount = record.Amount,
+                BankId = bankId,
+                NormalizationConfidence = confidence,
+                Status = status,
+                FailureReason = failureReason
+            };
+
+            newTransactions.Add(transaction);
+            if (status == "pending") addedAmount += record.Amount;
+        }
+
+        var addedCount = newTransactions.Count(t => t.Status == "pending");
+        var failedCount = newTransactions.Count(t => t.Status == "failed");
+
+        _context.Transactions.AddRange(newTransactions);
+
+        batch.TotalRecords += newTransactions.Count;
+        batch.TotalAmount += addedAmount;
+        batch.PendingCount += addedCount;
+        batch.FailedCount += failedCount;
+
+        await _context.SaveChangesAsync();
+
+        await _audit.LogAsync(
+            "batch.recipients_added",
+            "PayoutBatch",
+            batch.Id.ToString(),
+            userId,
+            orgId,
+            details: $"Added {addedCount} recipients from {fileName}, amount: {addedAmount:N2}");
+
+        return new AddRecipientsToBatchResponse
+        {
+            AddedCount = addedCount,
+            FailedCount = failedCount,
+            AddedAmount = addedAmount,
+            Errors = errors
         };
     }
 

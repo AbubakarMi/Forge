@@ -14,6 +14,17 @@ public class CreateBatchFromFileResponse
 public class ConfirmBatchRequest
 {
     public string BatchName { get; set; } = string.Empty;
+    public string PaymentType { get; set; } = "immediate"; // immediate, scheduled, recurring
+    public DateTime? ScheduledAt { get; set; }
+    public string? RecurringInterval { get; set; } // monthly, biweekly, weekly
+}
+
+public class AddRecipientsToBatchResponse
+{
+    public int AddedCount { get; set; }
+    public int FailedCount { get; set; }
+    public decimal AddedAmount { get; set; }
+    public List<BatchValidationError> Errors { get; set; } = new();
 }
 
 public class PayoutBatchResponse
@@ -27,6 +38,11 @@ public class PayoutBatchResponse
     public int SuccessCount { get; set; }
     public int FailedCount { get; set; }
     public int PendingCount { get; set; }
+    public string PaymentType { get; set; } = "immediate";
+    public DateTime? ScheduledAt { get; set; }
+    public bool IsRecurring { get; set; }
+    public string? RecurringInterval { get; set; }
+    public DateTime? NextRunAt { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
 }
@@ -42,6 +58,11 @@ public class PayoutBatchDetailResponse
     public int SuccessCount { get; set; }
     public int FailedCount { get; set; }
     public int PendingCount { get; set; }
+    public string PaymentType { get; set; } = "immediate";
+    public DateTime? ScheduledAt { get; set; }
+    public bool IsRecurring { get; set; }
+    public string? RecurringInterval { get; set; }
+    public DateTime? NextRunAt { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public List<TransactionResponse> Transactions { get; set; } = new();

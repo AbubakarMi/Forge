@@ -18,6 +18,9 @@ export default function StatusBadge({ status }: { status: string }) {
     case 'failed':
       colors = 'bg-red-100 text-red-800'
       break
+    case 'scheduled':
+      colors = 'bg-indigo-100 text-indigo-800'
+      break
     case 'cancelled':
       colors = 'bg-gray-100 text-gray-800'
       break
