@@ -12,6 +12,8 @@ public interface IPayoutBatchService
 {
     Task<CreateBatchFromFileResponse> CreateBatchFromFileAsync(Stream file, string fileName, Guid orgId, Guid userId);
     Task ConfirmBatchAsync(Guid batchId, ConfirmBatchRequest request, Guid orgId, Guid userId);
+    Task<UpdateTransactionResponse> UpdateTransactionAsync(Guid batchId, Guid transactionId, UpdateTransactionRequest request, Guid orgId);
+    Task<ReuploadFailedResponse> ReuploadFailedAsync(Guid batchId, Stream file, string fileName, Guid orgId, Guid userId);
     Task<AddRecipientsToBatchResponse> AddRecipientsAsync(Guid batchId, Stream file, string fileName, Guid orgId, Guid userId);
     Task<(List<PayoutBatchResponse> Batches, int TotalCount)> GetBatchesAsync(Guid orgId, BatchFilterRequest filters);
     Task<PayoutBatchDetailResponse> GetBatchDetailAsync(Guid batchId, Guid orgId);
@@ -123,7 +125,7 @@ public class PayoutBatchService : IPayoutBatchService
             }
 
             // Validate account number (NUBAN)
-            var (accountErrors, accountWarnings) = _transactionValidation.ValidateAccountNumber(
+            var accountErrors = _transactionValidation.ValidateAccountNumber(
                 record.AccountNumber, normResult?.BankCode);
             foreach (var err in accountErrors)
             {
@@ -132,16 +134,6 @@ public class PayoutBatchService : IPayoutBatchService
                     RowNumber = rowNumber,
                     Field = "AccountNumber",
                     Message = err
-                });
-            }
-            // Warnings are informational — record in errors list for the UI but don't fail the transaction
-            foreach (var warn in accountWarnings)
-            {
-                errors.Add(new BatchValidationError
-                {
-                    RowNumber = rowNumber,
-                    Field = "AccountNumber",
-                    Message = warn
                 });
             }
 
@@ -317,6 +309,217 @@ public class PayoutBatchService : IPayoutBatchService
             details: $"Batch confirmed with name: {batchName}, type: {batch.PaymentType}");
     }
 
+    public async Task<UpdateTransactionResponse> UpdateTransactionAsync(
+        Guid batchId, Guid transactionId, UpdateTransactionRequest request, Guid orgId)
+    {
+        var batch = await _context.PayoutBatches
+            .FirstOrDefaultAsync(b => b.Id == batchId)
+            ?? throw new NotFoundException($"Batch '{batchId}' not found.");
+
+        if (batch.OrganizationId != orgId)
+            throw new ForbiddenException();
+
+        if (batch.Status != "draft")
+            throw new AppValidationException("Can only edit transactions in draft batches.");
+
+        var transaction = await _context.Transactions
+            .FirstOrDefaultAsync(t => t.Id == transactionId && t.PayoutBatchId == batchId)
+            ?? throw new NotFoundException($"Transaction '{transactionId}' not found.");
+
+        var wasFailed = transaction.Status == "failed";
+        var oldAmount = transaction.Amount;
+
+        // Update fields
+        transaction.RecipientName = request.RecipientName.Trim();
+        transaction.RawBankName = request.BankName.Trim();
+        transaction.AccountNumber = request.AccountNumber.Trim();
+        transaction.Amount = request.Amount;
+
+        // Re-normalize bank name
+        var normResults = await _bankNormalization.NormalizeBankNamesAsync(new List<string> { request.BankName.Trim() });
+        var normResult = normResults.FirstOrDefault();
+        transaction.NormalizedBankName = normResult?.NormalizedBank;
+        transaction.NormalizationConfidence = normResult?.Confidence;
+
+        Guid? bankId = null;
+        if (normResult?.BankCode != null)
+        {
+            var bank = await _context.Banks.FirstOrDefaultAsync(b => b.Code == normResult.BankCode);
+            if (bank != null) bankId = bank.Id;
+        }
+        transaction.BankId = bankId;
+
+        // Re-validate
+        var errors = new List<string>();
+        errors.AddRange(_transactionValidation.ValidateAmount(request.Amount));
+        errors.AddRange(_transactionValidation.ValidateAccountNumber(
+            request.AccountNumber.Trim(), normResult?.BankCode));
+
+        if (errors.Count > 0)
+        {
+            transaction.Status = "failed";
+            transaction.FailureReason = string.Join("; ", errors);
+        }
+        else
+        {
+            transaction.Status = "pending";
+            transaction.FailureReason = null;
+        }
+
+        // Update batch counters
+        if (wasFailed && transaction.Status == "pending")
+        {
+            batch.FailedCount--;
+            batch.PendingCount++;
+            batch.TotalAmount += transaction.Amount;
+            if (oldAmount > 0) batch.TotalAmount -= 0; // failed records weren't counted in TotalAmount
+        }
+        else if (!wasFailed && transaction.Status == "failed")
+        {
+            batch.PendingCount--;
+            batch.FailedCount++;
+            batch.TotalAmount -= oldAmount;
+        }
+        else if (wasFailed && transaction.Status == "failed")
+        {
+            // Still failed, no counter change
+        }
+        else
+        {
+            // Was pending, still pending — update amount difference
+            batch.TotalAmount += (transaction.Amount - oldAmount);
+        }
+
+        await _context.SaveChangesAsync();
+
+        return new UpdateTransactionResponse
+        {
+            Id = transaction.Id,
+            Status = transaction.Status,
+            FailureReason = transaction.FailureReason,
+            NormalizedBankName = transaction.NormalizedBankName,
+            NormalizationConfidence = transaction.NormalizationConfidence
+        };
+    }
+
+    public async Task<ReuploadFailedResponse> ReuploadFailedAsync(
+        Guid batchId, Stream file, string fileName, Guid orgId, Guid userId)
+    {
+        var batch = await _context.PayoutBatches
+            .Include(b => b.Transactions)
+            .FirstOrDefaultAsync(b => b.Id == batchId)
+            ?? throw new NotFoundException($"Batch '{batchId}' not found.");
+
+        if (batch.OrganizationId != orgId)
+            throw new ForbiddenException();
+
+        if (batch.Status != "draft")
+            throw new AppValidationException("Can only re-upload failed records for draft batches.");
+
+        // Remove all existing failed transactions
+        var failedTxns = batch.Transactions.Where(t => t.Status == "failed").ToList();
+        _context.Transactions.RemoveRange(failedTxns);
+
+        // Parse new CSV
+        var parseResult = await _csvParser.ParsePaymentFileAsync(file);
+        var errors = new List<BatchValidationError>(parseResult.Errors);
+
+        // Normalize bank names
+        var bankNames = parseResult.ValidRecords.Select(r => r.BankName).Distinct().ToList();
+        var normalizationResults = bankNames.Count > 0
+            ? await _bankNormalization.NormalizeBankNamesAsync(bankNames)
+            : new List<DTOs.Normalization.NormalizationResult>();
+
+        var normMap = new Dictionary<string, DTOs.Normalization.NormalizationResult>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < bankNames.Count; i++)
+            normMap[bankNames[i]] = normalizationResults[i];
+
+        var bankCodes = normalizationResults.Where(n => n.BankCode != null).Select(n => n.BankCode!).Distinct().ToList();
+        var banksById = new Dictionary<string, Models.Bank>(StringComparer.OrdinalIgnoreCase);
+        if (bankCodes.Count > 0)
+        {
+            var banks = await _context.Banks.Where(b => bankCodes.Contains(b.Code)).ToListAsync();
+            foreach (var bank in banks) banksById[bank.Code] = bank;
+        }
+
+        var newTransactions = new List<Transaction>();
+        var newValidAmount = 0m;
+
+        for (var i = 0; i < parseResult.ValidRecords.Count; i++)
+        {
+            var record = parseResult.ValidRecords[i];
+            var rowNumber = i + 2;
+            var rowErrors = new List<BatchValidationError>();
+
+            var normResult = normMap.GetValueOrDefault(record.BankName);
+            Guid? bankId = null;
+            if (normResult?.BankCode != null && banksById.TryGetValue(normResult.BankCode, out var bank))
+                bankId = bank.Id;
+
+            var amountErrors = _transactionValidation.ValidateAmount(record.Amount);
+            foreach (var err in amountErrors)
+                rowErrors.Add(new BatchValidationError { RowNumber = rowNumber, Field = "Amount", Message = err });
+
+            var accountErrors = _transactionValidation.ValidateAccountNumber(record.AccountNumber, normResult?.BankCode);
+            foreach (var err in accountErrors)
+                rowErrors.Add(new BatchValidationError { RowNumber = rowNumber, Field = "AccountNumber", Message = err });
+
+            if (rowErrors.Count > 0) errors.AddRange(rowErrors);
+
+            var status = rowErrors.Count > 0 ? "failed" : "pending";
+            var failureReason = rowErrors.Count > 0 ? string.Join("; ", rowErrors.Select(e => e.Message)) : null;
+
+            newTransactions.Add(new Transaction
+            {
+                PayoutBatchId = batch.Id,
+                OrganizationId = orgId,
+                RecipientName = record.RecipientName,
+                RawBankName = record.BankName,
+                NormalizedBankName = normResult?.NormalizedBank,
+                AccountNumber = record.AccountNumber,
+                Amount = record.Amount,
+                BankId = bankId,
+                NormalizationConfidence = normResult?.Confidence,
+                Status = status,
+                FailureReason = failureReason
+            });
+
+            if (status == "pending") newValidAmount += record.Amount;
+        }
+
+        _context.Transactions.AddRange(newTransactions);
+
+        // Recalculate batch counters from scratch
+        var existingPending = batch.Transactions.Where(t => t.Status == "pending").ToList();
+        var newPendingCount = newTransactions.Count(t => t.Status == "pending");
+        var newFailedCount = newTransactions.Count(t => t.Status == "failed");
+        var existingPendingAmount = existingPending.Sum(t => t.Amount);
+
+        batch.TotalRecords = existingPending.Count + newTransactions.Count;
+        batch.TotalAmount = existingPendingAmount + newValidAmount;
+        batch.PendingCount = existingPending.Count + newPendingCount;
+        batch.FailedCount = newFailedCount;
+
+        await _context.SaveChangesAsync();
+
+        await _audit.LogAsync(
+            "batch.failed_reuploaded",
+            "PayoutBatch",
+            batch.Id.ToString(),
+            userId,
+            orgId,
+            details: $"Re-uploaded failed records from {fileName}. Replaced {failedTxns.Count} with {newTransactions.Count} records.");
+
+        return new ReuploadFailedResponse
+        {
+            ReplacedCount = failedTxns.Count,
+            StillFailedCount = newFailedCount,
+            NewValidCount = newPendingCount,
+            TotalAmount = batch.TotalAmount,
+            Errors = errors
+        };
+    }
+
     public async Task<(List<PayoutBatchResponse> Batches, int TotalCount)> GetBatchesAsync(
         Guid orgId, BatchFilterRequest filters)
     {
@@ -470,11 +673,9 @@ public class PayoutBatchService : IPayoutBatchService
             foreach (var err in amountErrors)
                 rowErrors.Add(new BatchValidationError { RowNumber = rowNumber, Field = "Amount", Message = err });
 
-            var (accountErrors2, accountWarnings2) = _transactionValidation.ValidateAccountNumber(record.AccountNumber, normResult?.BankCode);
-            foreach (var err in accountErrors2)
+            var accountErrors = _transactionValidation.ValidateAccountNumber(record.AccountNumber, normResult?.BankCode);
+            foreach (var err in accountErrors)
                 rowErrors.Add(new BatchValidationError { RowNumber = rowNumber, Field = "AccountNumber", Message = err });
-            foreach (var warn in accountWarnings2)
-                errors.Add(new BatchValidationError { RowNumber = rowNumber, Field = "AccountNumber", Message = warn });
 
             if (rowErrors.Count > 0)
                 errors.AddRange(rowErrors);

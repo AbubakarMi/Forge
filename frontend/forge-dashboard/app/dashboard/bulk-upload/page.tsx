@@ -41,6 +41,15 @@ export default function BulkUploadPage() {
   const [summary, setSummary] = useState<BatchSummary | null>(null)
   const [processingInBackground, setProcessingInBackground] = useState(false)
 
+  // Review tab
+  const [reviewTab, setReviewTab] = useState<'all' | 'valid' | 'failed'>('all')
+  // Inline edit
+  const [editingTxId, setEditingTxId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState({ recipientName: '', bankName: '', accountNumber: '', amount: '' })
+  const [editSaving, setEditSaving] = useState(false)
+  // Re-upload failed
+  const [reuploadFile, setReuploadFile] = useState<File | null>(null)
+  const [reuploading, setReuploading] = useState(false)
   // Duplicate confirmation
   const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false)
   const [confirmingDuplicates, setConfirmingDuplicates] = useState(false)
@@ -213,6 +222,77 @@ export default function BulkUploadPage() {
       showToast('error', 'Failed to confirm duplicates.')
     } finally {
       setConfirmingDuplicates(false)
+    }
+  }
+
+  const handleStartEdit = (t: TransactionDetail) => {
+    setEditingTxId(t.id)
+    setEditForm({
+      recipientName: t.recipientName,
+      bankName: t.rawBankName,
+      accountNumber: t.accountNumber,
+      amount: String(t.amount),
+    })
+  }
+
+  const handleSaveEdit = async () => {
+    if (!uploadResult || !editingTxId) return
+    setEditSaving(true)
+    try {
+      const result = await payoutBatchService.updateTransaction(uploadResult.batchId, editingTxId, {
+        recipientName: editForm.recipientName,
+        bankName: editForm.bankName,
+        accountNumber: editForm.accountNumber,
+        amount: parseFloat(editForm.amount) || 0,
+      })
+      // Refresh batch detail to get updated data
+      const detail = await payoutBatchService.getBatchDetail(uploadResult.batchId)
+      setBatchDetail(detail)
+      // Update upload result counts
+      const pendingCount = detail.transactions.filter(t => t.status === 'pending').length
+      const failedCount = detail.transactions.filter(t => t.status === 'failed').length
+      setUploadResult(prev => prev ? {
+        ...prev,
+        validRecords: pendingCount,
+        invalidRecords: failedCount,
+        totalAmount: detail.totalAmount,
+        totalRecords: detail.totalRecords,
+      } : prev)
+      if (result.status === 'pending') {
+        showToast('success', 'Record fixed and passed validation.')
+      } else {
+        showToast('error', result.failureReason || 'Record still has errors.')
+      }
+      setEditingTxId(null)
+    } catch {
+      showToast('error', 'Failed to update record.')
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  const handleReuploadFailed = async () => {
+    if (!uploadResult || !reuploadFile) return
+    setReuploading(true)
+    try {
+      const result = await payoutBatchService.reuploadFailed(uploadResult.batchId, reuploadFile)
+      const detail = await payoutBatchService.getBatchDetail(uploadResult.batchId)
+      setBatchDetail(detail)
+      const pendingCount = detail.transactions.filter(t => t.status === 'pending').length
+      const failedCount = detail.transactions.filter(t => t.status === 'failed').length
+      setUploadResult(prev => prev ? {
+        ...prev,
+        validRecords: pendingCount,
+        invalidRecords: failedCount,
+        totalAmount: detail.totalAmount,
+        totalRecords: detail.totalRecords,
+      } : prev)
+      showToast('success', `Replaced failed records: ${result.newValidCount} now valid, ${result.stillFailedCount} still need fixing.`)
+      setReuploadFile(null)
+    } catch {
+      showToast('error', 'Failed to re-upload.')
+    } finally {
+      setReuploading(false)
     }
   }
 
@@ -452,17 +532,17 @@ export default function BulkUploadPage() {
         )}
 
         {/* Step 3: Review */}
-        {step === 'review' && uploadResult && (
+        {step === 'review' && uploadResult && batchDetail && (
           <motion.div key="review" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-1">Validation Results</h2>
-              <p className="text-sm text-gray-500 mb-4">Review the parsed and normalized records before proceeding.</p>
+              <h2 className="text-lg font-semibold text-gray-900 mb-1">Review All Records</h2>
+              <p className="text-sm text-gray-500 mb-4">Review every record. You can edit failed ones inline or re-upload a corrected CSV.</p>
 
               {/* Summary cards */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
                 <div className="bg-gray-50 rounded-lg p-4">
                   <p className="text-xs text-gray-500 font-medium">Total Records</p>
-                  <p className="text-xl font-bold text-gray-900 mt-1">{uploadResult.totalRecords}</p>
+                  <p className="text-xl font-bold text-gray-900 mt-1">{batchDetail.transactions.length}</p>
                 </div>
                 <div className="bg-green-50 rounded-lg p-4">
                   <p className="text-xs text-green-600 font-medium">Valid</p>
@@ -473,152 +553,209 @@ export default function BulkUploadPage() {
                   <p className="text-xl font-bold text-red-700 mt-1">{failedTransactions.all.length}</p>
                 </div>
                 <div className="bg-blue-50 rounded-lg p-4">
-                  <p className="text-xs text-blue-600 font-medium">Total Amount</p>
-                  <p className="text-lg font-bold text-blue-700 mt-1">{formatCurrency(uploadResult.totalAmount)}</p>
+                  <p className="text-xs text-blue-600 font-medium">Payment Amount</p>
+                  <p className="text-lg font-bold text-blue-700 mt-1">{formatCurrency(batchDetail.totalAmount)}</p>
+                  <p className="text-[10px] text-blue-500 mt-0.5">{validCount} records will be paid</p>
                 </div>
               </div>
 
-              {/* No errors */}
+              {/* All passed banner */}
               {failedTransactions.all.length === 0 && (
                 <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
                   <svg className="w-5 h-5 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <p className="text-sm text-green-700 font-medium">All records passed validation. Ready to proceed.</p>
+                  <p className="text-sm text-green-700 font-medium">All {validCount} records passed validation. Ready to proceed.</p>
                 </div>
               )}
 
-              {/* Duplicate warnings */}
-              {failedTransactions.duplicates.length > 0 && (
-                <div className="mb-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-semibold text-amber-700 flex items-center gap-2">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                      </svg>
-                      Potential Duplicates ({failedTransactions.duplicates.length})
-                    </h3>
-                    <button onClick={() => setShowDuplicateConfirm(true)}
-                      className="px-3 py-1.5 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors">
-                      Confirm All - Not Duplicates
+              {/* Failed actions bar */}
+              {failedTransactions.all.length > 0 && (
+                <div className="mb-4 flex flex-wrap items-center gap-3 bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p className="text-sm text-red-700 font-medium flex-1">
+                    {failedTransactions.all.length} record(s) failed validation. Fix them below or re-upload a corrected CSV.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    {failedTransactions.duplicates.length > 0 && (
+                      <button onClick={() => setShowDuplicateConfirm(true)}
+                        className="px-3 py-1.5 text-xs font-semibold text-amber-700 bg-white border border-amber-300 rounded-lg hover:bg-amber-50 transition-colors">
+                        Confirm Duplicates ({failedTransactions.duplicates.length})
+                      </button>
+                    )}
+                    <button onClick={handleDownloadFailed}
+                      className="px-3 py-1.5 text-xs font-semibold text-red-600 bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
+                      Download Failed CSV
+                    </button>
+                    <label className="px-3 py-1.5 text-xs font-semibold text-indigo-600 bg-white border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors cursor-pointer">
+                      Re-upload Fixed CSV
+                      <input type="file" accept=".csv" className="hidden" onChange={(e) => {
+                        const f = e.target.files?.[0]
+                        if (f) { setReuploadFile(f); e.target.value = '' }
+                      }} />
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {/* Re-upload confirmation */}
+              {reuploadFile && (
+                <div className="mb-4 flex items-center justify-between bg-indigo-50 border border-indigo-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-sm text-indigo-700">
+                      <span className="font-medium">{reuploadFile.name}</span> selected. This will replace all {failedTransactions.all.length} failed records.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setReuploadFile(null)}
+                      className="px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors">
+                      Cancel
+                    </button>
+                    <button onClick={handleReuploadFailed} disabled={reuploading}
+                      className="px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors">
+                      {reuploading ? 'Uploading...' : 'Replace Failed Records'}
                     </button>
                   </div>
-                  <div className="bg-amber-50 rounded-lg border border-amber-200 overflow-hidden max-h-64 overflow-y-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-amber-100/50 border-b border-amber-200">
-                          <th className="text-left px-4 py-2 text-xs font-semibold text-amber-700">Name</th>
-                          <th className="text-left px-4 py-2 text-xs font-semibold text-amber-700">Bank</th>
-                          <th className="text-left px-4 py-2 text-xs font-semibold text-amber-700">Account</th>
-                          <th className="text-right px-4 py-2 text-xs font-semibold text-amber-700">Amount</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-amber-100">
-                        {failedTransactions.duplicates.map((t) => (
-                          <tr key={t.id}>
-                            <td className="px-4 py-2 text-amber-900">{t.recipientName}</td>
-                            <td className="px-4 py-2 text-amber-800">{t.rawBankName}</td>
-                            <td className="px-4 py-2 font-mono text-xs text-amber-800">{t.accountNumber}</td>
-                            <td className="px-4 py-2 text-right text-amber-900 font-medium">{formatCurrency(t.amount)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <p className="text-xs text-amber-600 mt-2">
-                    These transactions match existing records. If they are intentional, click &quot;Confirm All&quot; to process them.
-                  </p>
                 </div>
               )}
 
-              {/* NUBAN / Account errors */}
-              {failedTransactions.nuban.length > 0 && (
-                <div className="mb-6">
-                  <h3 className="text-sm font-semibold text-red-700 mb-2 flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Account/NUBAN Errors ({failedTransactions.nuban.length})
-                  </h3>
-                  <div className="bg-red-50 rounded-lg border border-red-200 overflow-hidden max-h-64 overflow-y-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-red-100/50 border-b border-red-200">
-                          <th className="text-left px-4 py-2 text-xs font-semibold text-red-700">Name</th>
-                          <th className="text-left px-4 py-2 text-xs font-semibold text-red-700">Bank</th>
-                          <th className="text-left px-4 py-2 text-xs font-semibold text-red-700">Account</th>
-                          <th className="text-right px-4 py-2 text-xs font-semibold text-red-700">Amount</th>
-                          <th className="text-left px-4 py-2 text-xs font-semibold text-red-700">Reason</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-red-100">
-                        {failedTransactions.nuban.map((t) => (
-                          <tr key={t.id}>
-                            <td className="px-4 py-2 text-red-900">{t.recipientName}</td>
-                            <td className="px-4 py-2 text-red-800">{t.rawBankName}</td>
-                            <td className="px-4 py-2 font-mono text-xs text-red-800">{t.accountNumber}</td>
-                            <td className="px-4 py-2 text-right text-red-900 font-medium">{formatCurrency(t.amount)}</td>
-                            <td className="px-4 py-2 text-xs text-red-600">{t.failureReason}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {/* Other errors */}
-              {failedTransactions.other.length > 0 && (
-                <div className="mb-6">
-                  <h3 className="text-sm font-semibold text-red-700 mb-2">Other Errors ({failedTransactions.other.length})</h3>
-                  <div className="bg-red-50 rounded-lg border border-red-200 overflow-hidden max-h-64 overflow-y-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-red-100/50 border-b border-red-200">
-                          <th className="text-left px-4 py-2 text-xs font-semibold text-red-700">Name</th>
-                          <th className="text-left px-4 py-2 text-xs font-semibold text-red-700">Bank</th>
-                          <th className="text-left px-4 py-2 text-xs font-semibold text-red-700">Account</th>
-                          <th className="text-right px-4 py-2 text-xs font-semibold text-red-700">Amount</th>
-                          <th className="text-left px-4 py-2 text-xs font-semibold text-red-700">Reason</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-red-100">
-                        {failedTransactions.other.map((t) => (
-                          <tr key={t.id}>
-                            <td className="px-4 py-2 text-red-900">{t.recipientName}</td>
-                            <td className="px-4 py-2 text-red-800">{t.rawBankName}</td>
-                            <td className="px-4 py-2 font-mono text-xs text-red-800">{t.accountNumber}</td>
-                            <td className="px-4 py-2 text-right text-red-900 font-medium">{formatCurrency(t.amount)}</td>
-                            <td className="px-4 py-2 text-xs text-red-600">{t.failureReason}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {/* Download failed */}
-              {failedTransactions.all.length > 0 && (
-                <div className="mb-6 flex items-center justify-between bg-gray-50 rounded-lg border border-gray-200 p-3">
-                  <p className="text-sm text-gray-600">
-                    <span className="font-medium">{failedTransactions.all.length}</span> failed record(s) with original data and failure reasons
-                  </p>
-                  <button onClick={handleDownloadFailed}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-600 bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                    Download Failed Records CSV
+              {/* Tabs */}
+              <div className="flex items-center gap-1 mb-3 border-b border-gray-200">
+                {([
+                  { key: 'all' as const, label: 'All Records', count: batchDetail.transactions.length },
+                  { key: 'valid' as const, label: 'Valid', count: validCount },
+                  { key: 'failed' as const, label: 'Failed', count: failedTransactions.all.length },
+                ]).map((t) => (
+                  <button key={t.key} onClick={() => setReviewTab(t.key)}
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                      reviewTab === t.key
+                        ? 'border-forge-primary text-forge-primary'
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                    }`}>
+                    {t.label} ({t.count})
                   </button>
-                </div>
-              )}
+                ))}
+              </div>
+
+              {/* Records table */}
+              <div className="rounded-lg border border-gray-200 overflow-hidden max-h-[400px] overflow-y-auto mb-6">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 z-10">
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Status</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Name</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Bank</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Account</th>
+                      <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500">Amount</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Issue</th>
+                      <th className="text-center px-4 py-2.5 text-xs font-semibold text-gray-500 w-16"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {(reviewTab === 'all' ? batchDetail.transactions
+                      : reviewTab === 'valid' ? batchDetail.transactions.filter(t => t.status === 'pending')
+                      : failedTransactions.all
+                    ).map((t) => (
+                      editingTxId === t.id ? (
+                        /* Inline edit row */
+                        <tr key={t.id} className="bg-blue-50/50">
+                          <td className="px-4 py-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" />
+                          </td>
+                          <td className="px-4 py-1.5">
+                            <input type="text" value={editForm.recipientName}
+                              onChange={(e) => setEditForm(f => ({ ...f, recipientName: e.target.value }))}
+                              className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-forge-primary focus:border-transparent" />
+                          </td>
+                          <td className="px-4 py-1.5">
+                            <input type="text" value={editForm.bankName}
+                              onChange={(e) => setEditForm(f => ({ ...f, bankName: e.target.value }))}
+                              className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-forge-primary focus:border-transparent" />
+                          </td>
+                          <td className="px-4 py-1.5">
+                            <input type="text" value={editForm.accountNumber}
+                              onChange={(e) => setEditForm(f => ({ ...f, accountNumber: e.target.value }))}
+                              className="w-full px-2 py-1.5 text-sm font-mono border border-gray-300 rounded focus:ring-1 focus:ring-forge-primary focus:border-transparent" />
+                          </td>
+                          <td className="px-4 py-1.5">
+                            <input type="number" value={editForm.amount}
+                              onChange={(e) => setEditForm(f => ({ ...f, amount: e.target.value }))}
+                              className="w-full px-2 py-1.5 text-sm text-right border border-gray-300 rounded focus:ring-1 focus:ring-forge-primary focus:border-transparent" />
+                          </td>
+                          <td className="px-4 py-1.5" colSpan={1}>
+                            <span className="text-xs text-blue-600">Editing...</span>
+                          </td>
+                          <td className="px-4 py-1.5">
+                            <div className="flex items-center gap-1">
+                              <button onClick={handleSaveEdit} disabled={editSaving}
+                                className="p-1 text-green-600 hover:bg-green-100 rounded transition-colors disabled:opacity-50"
+                                title="Save & revalidate">
+                                {editSaving ? (
+                                  <div className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                )}
+                              </button>
+                              <button onClick={() => setEditingTxId(null)}
+                                className="p-1 text-gray-400 hover:bg-gray-100 rounded transition-colors" title="Cancel">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
+                        /* Normal display row */
+                        <tr key={t.id} className={t.status === 'failed' ? 'bg-red-50/30' : ''}>
+                          <td className="px-4 py-2.5">
+                            <span className={`w-2.5 h-2.5 rounded-full inline-block ${
+                              t.status === 'pending' ? 'bg-green-500' : 'bg-red-500'
+                            }`} />
+                          </td>
+                          <td className="px-4 py-2.5 text-gray-900">{t.recipientName}</td>
+                          <td className="px-4 py-2.5 text-gray-700">
+                            {t.normalizedBankName || t.rawBankName}
+                            {t.normalizedBankName && t.rawBankName !== t.normalizedBankName && (
+                              <span className="block text-[10px] text-gray-400">{t.rawBankName}</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 font-mono text-xs text-gray-700">{t.accountNumber}</td>
+                          <td className="px-4 py-2.5 text-right text-gray-900 font-medium">{formatCurrency(t.amount)}</td>
+                          <td className="px-4 py-2.5 text-xs text-red-600 max-w-[200px] truncate" title={t.failureReason || ''}>
+                            {t.failureReason || <span className="text-green-600">Passed</span>}
+                          </td>
+                          <td className="px-4 py-2.5 text-center">
+                            {t.status === 'failed' && (
+                              <button onClick={() => handleStartEdit(t)}
+                                className="p-1 text-indigo-500 hover:bg-indigo-50 rounded transition-colors" title="Edit this record">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    ))}
+                    {batchDetail.transactions.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">No records.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
 
               {/* Actions */}
               <div className="flex items-center gap-3">
                 <button onClick={handleProceedToCreate} disabled={validCount === 0}
                   className="px-5 py-2.5 text-sm font-semibold text-white bg-forge-primary rounded-lg hover:bg-forge-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                  Continue ({validCount} valid records)
+                  Continue with {validCount} valid record{validCount !== 1 ? 's' : ''} ({formatCurrency(batchDetail.totalAmount)})
                 </button>
                 <button onClick={handleReset}
                   className="px-5 py-2.5 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors">

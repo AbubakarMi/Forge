@@ -10,7 +10,7 @@ public interface ITransactionValidationService
     List<string> ValidateAmount(decimal amount);
     Task<List<string>> ValidateBatchAmountAsync(decimal totalAmount, Guid organizationId);
     Task<bool> IsDuplicateAsync(string accountNumber, Guid? bankId, decimal amount, Guid organizationId);
-    (List<string> Errors, List<string> Warnings) ValidateAccountNumber(string accountNumber, string? bankCode = null);
+    List<string> ValidateAccountNumber(string accountNumber, string? bankCode = null);
 }
 
 public class TransactionValidationService : ITransactionValidationService
@@ -81,15 +81,14 @@ public class TransactionValidationService : ITransactionValidationService
     /// Validates Nigerian bank account numbers using NUBAN format.
     /// NUBAN: 10 digits, where the 10th digit is a check digit.
     /// </summary>
-    public (List<string> Errors, List<string> Warnings) ValidateAccountNumber(string accountNumber, string? bankCode = null)
+    public List<string> ValidateAccountNumber(string accountNumber, string? bankCode = null)
     {
         var errors = new List<string>();
-        var warnings = new List<string>();
 
         if (string.IsNullOrWhiteSpace(accountNumber))
         {
             errors.Add("Account number is required.");
-            return (errors, warnings);
+            return errors;
         }
 
         // Remove spaces and dashes
@@ -98,13 +97,13 @@ public class TransactionValidationService : ITransactionValidationService
         if (cleaned.Length != 10)
         {
             errors.Add($"Account number must be exactly 10 digits (got {cleaned.Length}).");
-            return (errors, warnings);
+            return errors;
         }
 
         if (!cleaned.All(char.IsDigit))
         {
             errors.Add("Account number must contain only digits.");
-            return (errors, warnings);
+            return errors;
         }
 
         // NUBAN check digit validation (if bank code is available)
@@ -121,13 +120,11 @@ public class TransactionValidationService : ITransactionValidationService
         {
             if (!ValidateNubanCheckDigit(bankCode!, cleaned))
             {
-                // NUBAN mismatch is a warning, not a hard error.
-                // The actual bank API will do the final validation.
-                warnings.Add($"Account number {cleaned} may not match bank code {bankCode}. Please verify the account number.");
+                errors.Add($"Account number {cleaned} does not match bank code {bankCode}. Please double-check the account number and bank name.");
             }
         }
 
-        return (errors, warnings);
+        return errors;
     }
 
     /// <summary>

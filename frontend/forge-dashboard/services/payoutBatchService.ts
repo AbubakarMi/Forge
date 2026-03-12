@@ -111,6 +111,50 @@ export const payoutBatchService = {
     return response.data.data
   },
 
+  async updateTransaction(batchId: string, transactionId: string, data: {
+    recipientName: string
+    bankName: string
+    accountNumber: string
+    amount: number
+  }): Promise<{
+    id: string
+    status: string
+    failureReason: string | null
+    normalizedBankName: string | null
+    normalizationConfidence: number | null
+  }> {
+    const response = await apiClient.put<ApiResponseWrapper<{
+      id: string
+      status: string
+      failureReason: string | null
+      normalizedBankName: string | null
+      normalizationConfidence: number | null
+    }>>(`/api/payout-batches/${batchId}/transactions/${transactionId}`, data)
+    return response.data.data
+  },
+
+  async reuploadFailed(batchId: string, file: File): Promise<{
+    replacedCount: number
+    stillFailedCount: number
+    newValidCount: number
+    totalAmount: number
+    errors: { rowNumber: number; field: string; message: string }[]
+  }> {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await apiClient.post<ApiResponseWrapper<{
+      replacedCount: number
+      stillFailedCount: number
+      newValidCount: number
+      totalAmount: number
+      errors: { rowNumber: number; field: string; message: string }[]
+    }>>(`/api/payout-batches/${batchId}/reupload-failed`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 60000,
+    })
+    return response.data.data
+  },
+
   async confirmDuplicates(id: string): Promise<{ confirmedCount: number }> {
     const response = await apiClient.post<ApiResponseWrapper<{ confirmedCount: number }>>(
       `/api/payout-batches/${id}/confirm-duplicates`

@@ -98,6 +98,41 @@ public class PayoutBatchController : ControllerBase
     }
 
     /// <summary>
+    /// Update a single transaction in a draft batch and revalidate it.
+    /// </summary>
+    [HttpPut("{batchId:guid}/transactions/{transactionId:guid}")]
+    [ProducesResponseType(typeof(ApiResponse<UpdateTransactionResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> UpdateTransaction(
+        Guid batchId, Guid transactionId, [FromBody] UpdateTransactionRequest request)
+    {
+        var result = await _batchService.UpdateTransactionAsync(
+            batchId, transactionId, request, _orgProvider.OrganizationId);
+        return Ok(ApiResponse<UpdateTransactionResponse>.Ok(result));
+    }
+
+    /// <summary>
+    /// Re-upload a CSV to replace all failed transactions in a draft batch.
+    /// </summary>
+    [HttpPost("{id:guid}/reupload-failed")]
+    [ProducesResponseType(typeof(ApiResponse<ReuploadFailedResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ReuploadFailed(Guid id, [FromForm] IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest(ApiResponse.Fail("File is required."));
+
+        var extension = Path.GetExtension(file.FileName)?.ToLowerInvariant();
+        if (extension != ".csv")
+            return BadRequest(ApiResponse.Fail("Only CSV files (.csv) are allowed."));
+
+        using var stream = file.OpenReadStream();
+        var result = await _batchService.ReuploadFailedAsync(
+            id, stream, file.FileName, _orgProvider.OrganizationId, _orgProvider.UserId);
+
+        return Ok(ApiResponse<ReuploadFailedResponse>.Ok(result,
+            $"Replaced failed records. {result.NewValidCount} now valid, {result.StillFailedCount} still need fixing."));
+    }
+
+    /// <summary>
     /// List payout batches with optional filters.
     /// </summary>
     [HttpGet]

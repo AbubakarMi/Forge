@@ -105,6 +105,32 @@ public class BatchValidationError
     public string Message { get; set; } = string.Empty;
 }
 
+public class UpdateTransactionRequest
+{
+    public string RecipientName { get; set; } = string.Empty;
+    public string BankName { get; set; } = string.Empty;
+    public string AccountNumber { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+}
+
+public class UpdateTransactionResponse
+{
+    public Guid Id { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public string? FailureReason { get; set; }
+    public string? NormalizedBankName { get; set; }
+    public decimal? NormalizationConfidence { get; set; }
+}
+
+public class ReuploadFailedResponse
+{
+    public int ReplacedCount { get; set; }
+    public int StillFailedCount { get; set; }
+    public int NewValidCount { get; set; }
+    public decimal TotalAmount { get; set; }
+    public List<BatchValidationError> Errors { get; set; } = new();
+}
+
 public class BatchFilterRequest
 {
     public string? Status { get; set; }
