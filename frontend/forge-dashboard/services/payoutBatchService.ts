@@ -165,4 +165,8 @@ export const payoutBatchService = {
   async cancelBatch(id: string): Promise<void> {
     await apiClient.post(`/api/payout-batches/${id}/cancel`)
   },
+
+  async endRecurring(id: string): Promise<void> {
+    await apiClient.post(`/api/payout-batches/${id}/end-recurring`)
+  },
 }

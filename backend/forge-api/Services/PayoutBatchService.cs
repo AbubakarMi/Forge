@@ -21,6 +21,7 @@ public interface IPayoutBatchService
     Task RetryFailedTransactionsAsync(Guid batchId, Guid orgId, Guid userId);
     Task<int> ConfirmDuplicatesAsync(Guid batchId, Guid orgId, Guid userId);
     Task CancelBatchAsync(Guid batchId, Guid orgId, Guid userId);
+    Task EndRecurringAsync(Guid batchId, Guid orgId, Guid userId);
 }
 
 public class PayoutBatchService : IPayoutBatchService
@@ -871,5 +872,32 @@ public class PayoutBatchService : IPayoutBatchService
             userId,
             orgId,
             details: $"Batch cancelled. {pendingTransactions.Count} pending transactions cancelled.");
+    }
+
+    public async Task EndRecurringAsync(Guid batchId, Guid orgId, Guid userId)
+    {
+        var batch = await _context.PayoutBatches
+            .FirstOrDefaultAsync(b => b.Id == batchId)
+            ?? throw new NotFoundException($"Batch '{batchId}' not found.");
+
+        if (batch.OrganizationId != orgId)
+            throw new ForbiddenException();
+
+        if (!batch.IsRecurring)
+            throw new AppValidationException("This batch is not a recurring batch.");
+
+        batch.IsRecurring = false;
+        batch.NextRunAt = null;
+        batch.RecurringInterval = null;
+
+        await _context.SaveChangesAsync();
+
+        await _audit.LogAsync(
+            "batch.recurring_ended",
+            "PayoutBatch",
+            batch.Id.ToString(),
+            userId,
+            orgId,
+            details: "Recurring schedule ended.");
     }
 }

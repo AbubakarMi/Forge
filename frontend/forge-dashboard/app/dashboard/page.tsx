@@ -18,12 +18,6 @@ function formatNGN(amount: number): string {
   }).format(amount)
 }
 
-function formatCompact(amount: number): string {
-  if (amount >= 1_000_000_000) return `${(amount / 1_000_000_000).toFixed(1)}B`
-  if (amount >= 1_000_000) return `${(amount / 1_000_000).toFixed(1)}M`
-  if (amount >= 1_000) return `${(amount / 1_000).toFixed(1)}K`
-  return String(amount)
-}
 
 function timeAgo(dateStr: string): string {
   const now = Date.now()
@@ -104,21 +98,7 @@ export default function DashboardPage() {
     })
   }, [stats, totalTx, completedTx, failedTx, pendingTx, processingTx])
 
-  // Bar chart for batch volumes
-  const batchBars = useMemo(() => {
-    const reversed = [...recentBatches].reverse().slice(0, 6)
-    if (reversed.length === 0) return []
-    const max = Math.max(...reversed.map(b => b.totalAmount), 1)
-    return reversed.map(b => ({
-      id: b.id,
-      name: (b.batchName || b.fileName).length > 12
-        ? (b.batchName || b.fileName).slice(0, 12) + '...'
-        : (b.batchName || b.fileName),
-      amount: b.totalAmount,
-      pct: (b.totalAmount / max) * 100,
-      status: b.status,
-    }))
-  }, [recentBatches])
+
 
   if (loading) {
     return (
@@ -341,7 +321,7 @@ export default function DashboardPage() {
           )}
         </motion.div>
 
-        {/* Bar Chart */}
+        {/* Recent Batch Payouts */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -351,7 +331,7 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between mb-5">
             <div>
               <h3 className="text-sm font-semibold text-gray-900">Recent Batch Payouts</h3>
-              <p className="text-xs text-gray-400 mt-0.5">Amount per batch</p>
+              <p className="text-xs text-gray-400 mt-0.5">Latest payment batches overview</p>
             </div>
             <button
               onClick={() => router.push('/dashboard/payout-batches')}
@@ -361,48 +341,118 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          {batchBars.length === 0 ? (
+          {recentBatches.length === 0 ? (
             <div className="h-52 flex items-center justify-center">
               <div className="text-center">
                 <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-2">
                   <svg className="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                   </svg>
                 </div>
                 <p className="text-sm text-gray-400">No batch data yet</p>
               </div>
             </div>
           ) : (
-            <div className="space-y-3">
-              {batchBars.map((bar, i) => (
-                <motion.div
-                  key={bar.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.3 + i * 0.05 }}
-                  onClick={() => router.push(`/dashboard/payout-batches/${bar.id}`)}
-                  className="group cursor-pointer"
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-medium text-gray-700 group-hover:text-indigo-600 transition-colors truncate max-w-[60%]">
-                      {bar.name}
-                    </span>
-                    <span className="text-xs font-bold text-gray-900">{formatNGN(bar.amount)}</span>
-                  </div>
-                  <div className="h-7 bg-gray-50 rounded-lg overflow-hidden relative">
-                    <motion.div
-                      className="h-full rounded-lg bg-indigo-100 group-hover:bg-indigo-200 transition-colors relative"
-                      initial={{ width: 0 }}
-                      animate={{ width: `${Math.max(bar.pct, 3)}%` }}
-                      transition={{ duration: 0.6, delay: 0.3 + i * 0.05, ease: 'easeOut' }}
-                    >
-                      <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                        <StatusBadge status={bar.status} />
+            <div className="space-y-2.5">
+              {recentBatches.slice(0, 5).map((batch, i) => {
+                const totalTxInBatch = batch.successCount + batch.failedCount + batch.pendingCount
+                const successPct = totalTxInBatch > 0 ? (batch.successCount / totalTxInBatch) * 100 : 0
+                const failedPct = totalTxInBatch > 0 ? (batch.failedCount / totalTxInBatch) * 100 : 0
+                const statusBg = batch.status === 'completed' ? 'bg-emerald-50'
+                  : batch.status === 'failed' || batch.status === 'partially_failed' ? 'bg-red-50'
+                  : batch.status === 'scheduled' ? 'bg-indigo-50'
+                  : batch.status === 'processing' || batch.status === 'pending' ? 'bg-blue-50'
+                  : 'bg-gray-50'
+
+                return (
+                  <motion.div
+                    key={batch.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 + i * 0.06 }}
+                    onClick={() => router.push(`/dashboard/payout-batches/${batch.id}`)}
+                    className="group cursor-pointer rounded-xl border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all p-3.5"
+                  >
+                    <div className="flex items-center gap-3">
+                      {/* Status icon */}
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${statusBg}`}>
+                        {batch.status === 'completed' ? (
+                          <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : batch.status === 'processing' || batch.status === 'pending' ? (
+                          <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                        ) : batch.status === 'scheduled' ? (
+                          <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        ) : batch.status === 'failed' || batch.status === 'partially_failed' ? (
+                          <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                          </svg>
+                        ) : (
+                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4" />
+                          </svg>
+                        )}
                       </div>
-                    </motion.div>
-                  </div>
-                </motion.div>
-              ))}
+
+                      {/* Batch info */}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-gray-900 truncate group-hover:text-indigo-600 transition-colors">
+                            {batch.batchName || batch.fileName}
+                          </p>
+                          {batch.isRecurring && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded bg-purple-50 text-purple-600 flex-shrink-0">
+                              <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                              {batch.recurringInterval}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className="text-xs text-gray-400">{batch.totalRecords} records</span>
+                          <span className="text-xs text-gray-300">&middot;</span>
+                          <span className="text-xs text-gray-400">{timeAgo(batch.createdAt)}</span>
+                        </div>
+                      </div>
+
+                      {/* Amount + status */}
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-sm font-bold text-gray-900">{formatNGN(batch.totalAmount)}</p>
+                        <StatusBadge status={batch.status} />
+                      </div>
+                    </div>
+
+                    {/* Mini progress bar */}
+                    {totalTxInBatch > 0 && batch.status !== 'draft' && batch.status !== 'cancelled' && (
+                      <div className="mt-2.5 flex items-center gap-2">
+                        <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden flex">
+                          {successPct > 0 && (
+                            <motion.div
+                              className="h-full bg-emerald-400 rounded-l-full"
+                              initial={{ width: 0 }}
+                              animate={{ width: `${successPct}%` }}
+                              transition={{ duration: 0.8, delay: 0.4 + i * 0.06, ease: 'easeOut' }}
+                            />
+                          )}
+                          {failedPct > 0 && (
+                            <motion.div
+                              className="h-full bg-red-400"
+                              initial={{ width: 0 }}
+                              animate={{ width: `${failedPct}%` }}
+                              transition={{ duration: 0.8, delay: 0.5 + i * 0.06, ease: 'easeOut' }}
+                            />
+                          )}
+                        </div>
+                        <span className="text-[10px] text-gray-400 tabular-nums w-16 text-right">
+                          {batch.successCount}/{totalTxInBatch} paid
+                        </span>
+                      </div>
+                    )}
+                  </motion.div>
+                )
+              })}
             </div>
           )}
         </motion.div>

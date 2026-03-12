@@ -33,6 +33,8 @@ export default function PayoutBatchDetailPage() {
   const [showAddRecipients, setShowAddRecipients] = useState(false)
   const [addFile, setAddFile] = useState<File | null>(null)
   const [addingRecipients, setAddingRecipients] = useState(false)
+  const [showEndRecurring, setShowEndRecurring] = useState(false)
+  const [endingRecurring, setEndingRecurring] = useState(false)
 
   const loadBatch = useCallback(async () => {
     try {
@@ -116,6 +118,20 @@ export default function PayoutBatchDetailPage() {
       showToast('error', 'Failed to add recipients.')
     } finally {
       setAddingRecipients(false)
+    }
+  }
+
+  const handleEndRecurring = async () => {
+    setEndingRecurring(true)
+    try {
+      await payoutBatchService.endRecurring(id)
+      showToast('success', 'Recurring schedule ended.')
+      setShowEndRecurring(false)
+      await loadBatch()
+    } catch {
+      showToast('error', 'Failed to end recurring schedule.')
+    } finally {
+      setEndingRecurring(false)
     }
   }
 
@@ -231,6 +247,14 @@ export default function PayoutBatchDetailPage() {
         </div>
 
         <div className="flex gap-2">
+          {batch.isRecurring && (
+            <button
+              onClick={() => setShowEndRecurring(true)}
+              className="px-4 py-2 text-sm font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors"
+            >
+              End Recurring
+            </button>
+          )}
           {(batch.isRecurring || batch.paymentType === 'scheduled' || batch.status === 'completed' || batch.status === 'partially_failed') && (
             <button
               onClick={() => setShowAddRecipients(true)}
@@ -508,6 +532,17 @@ export default function PayoutBatchDetailPage() {
         variant="danger"
         onConfirm={handleCancel}
         onCancel={() => setShowCancelConfirm(false)}
+      />
+
+      {/* End recurring confirmation modal */}
+      <ConfirmModal
+        open={showEndRecurring}
+        title="End Recurring Schedule?"
+        message="This will stop future recurring payments for this batch. Already processed payments will not be affected."
+        confirmLabel={endingRecurring ? 'Ending...' : 'End Recurring'}
+        variant="warning"
+        onConfirm={handleEndRecurring}
+        onCancel={() => setShowEndRecurring(false)}
       />
 
       {/* Add Recipients Modal */}

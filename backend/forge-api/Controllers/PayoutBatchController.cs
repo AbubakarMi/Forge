@@ -213,6 +213,19 @@ public class PayoutBatchController : ControllerBase
     }
 
     /// <summary>
+    /// End recurring schedule for a batch.
+    /// </summary>
+    [HttpPost("{id:guid}/end-recurring")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> EndRecurring(Guid id)
+    {
+        await _batchService.EndRecurringAsync(
+            id, _orgProvider.OrganizationId, _orgProvider.UserId);
+        return Ok(ApiResponse.Ok(message: "Recurring schedule ended."));
+    }
+
+    /// <summary>
     /// Cancel a pending batch.
     /// </summary>
     [HttpPost("{id:guid}/cancel")]
