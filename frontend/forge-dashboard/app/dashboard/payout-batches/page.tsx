@@ -9,7 +9,17 @@ import StatusBadge from '@/components/ui/StatusBadge'
 import EmptyState from '@/components/ui/EmptyState'
 import { showToast } from '@/hooks/useToast'
 
-const STATUS_OPTIONS = ['all', 'pending', 'processing', 'completed', 'failed', 'cancelled']
+const STATUS_OPTIONS = ['all', 'pending', 'processing', 'completed', 'partially_failed', 'failed', 'cancelled']
+
+const STATUS_LABELS: Record<string, string> = {
+  all: 'All',
+  pending: 'Pending',
+  processing: 'Processing',
+  completed: 'Completed',
+  partially_failed: 'Partial',
+  failed: 'Failed',
+  cancelled: 'Cancelled',
+}
 
 export default function PayoutBatchesPage() {
   const router = useRouter()
@@ -36,9 +46,9 @@ export default function PayoutBatchesPage() {
       if (toDate) params.to = toDate
 
       const data: PaginatedResponse<PayoutBatch> = await payoutBatchService.getBatches(params)
-      setBatches(data.data)
-      setTotalPages(data.totalPages)
-      setTotalCount(data.totalCount)
+      setBatches(data?.data ?? [])
+      setTotalPages(data?.totalPages ?? 1)
+      setTotalCount(data?.totalCount ?? 0)
     } catch {
       showToast('error', 'Failed to load payout batches.')
     } finally {
@@ -102,7 +112,7 @@ export default function PayoutBatchesPage() {
             >
               {STATUS_OPTIONS.map((s) => (
                 <option key={s} value={s}>
-                  {s.charAt(0).toUpperCase() + s.slice(1)}
+                  {STATUS_LABELS[s] || s}
                 </option>
               ))}
             </select>

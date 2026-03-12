@@ -22,15 +22,18 @@ export default function StatusBadge({ status }: { status: string }) {
       colors = 'bg-gray-100 text-gray-800'
       break
     case 'partial':
+    case 'partially_failed':
       colors = 'bg-orange-100 text-orange-800'
       break
     default:
       colors = 'bg-gray-100 text-gray-600'
   }
 
+  const label = normalized === 'partially_failed' ? 'Partial' : normalized
+
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize ${colors}`}>
-      {normalized}
+      {label}
     </span>
   )
 }

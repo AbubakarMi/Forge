@@ -13,7 +13,8 @@ public class RateLimitMiddleware
 
     private const int ApiKeyLimitPerMinute = 100;
     private const int ApiKeyLimitPerHour = 1000;
-    private const int IpLimitPerMinute = 20;
+    private const int IpLimitPerMinute = 60;
+    private const int AuthenticatedLimitPerMinute = 120;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -42,6 +43,7 @@ public class RateLimitMiddleware
         int hourLimit;
 
         var apiKeyHeader = context.Request.Headers["X-API-Key"].FirstOrDefault();
+        var authHeader = context.Request.Headers["Authorization"].FirstOrDefault();
         if (!string.IsNullOrEmpty(apiKeyHeader))
         {
             // API key-based limiting
@@ -49,13 +51,21 @@ public class RateLimitMiddleware
             minuteLimit = ApiKeyLimitPerMinute;
             hourLimit = ApiKeyLimitPerHour;
         }
+        else if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        {
+            // JWT-authenticated user — higher limits for dashboard usage
+            var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            rateLimitKey = $"auth:{ip}";
+            minuteLimit = AuthenticatedLimitPerMinute;
+            hourLimit = minuteLimit * 10;
+        }
         else
         {
             // IP-based limiting for unauthenticated requests
             var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
             rateLimitKey = $"ip:{ip}";
             minuteLimit = IpLimitPerMinute;
-            hourLimit = minuteLimit * 10; // 200/hour for IP
+            hourLimit = minuteLimit * 10;
         }
 
         var window = Windows.GetOrAdd(rateLimitKey, _ => new SlidingWindow());

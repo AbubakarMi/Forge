@@ -1493,7 +1493,7 @@ Add "Export CSV" button to:
 
 ---
 
-### Task 14.1 — Create Email Service
+### Task 14.1 — Create Email Service ✅ DONE
 
 **Backend**
 
@@ -1508,7 +1508,7 @@ Create Services/EmailService.cs implementing IEmailService:
 
 ---
 
-### Task 14.2 — Create Email Templates
+### Task 14.2 — Create Email Templates ✅ DONE
 
 **Backend**
 
@@ -1521,7 +1521,7 @@ Create HTML email templates:
 
 ---
 
-### Task 14.3 — Create Weekly Summary Email Job
+### Task 14.3 — Create Weekly Summary Email Job ✅ DONE
 
 **Backend**
 
@@ -1555,7 +1555,7 @@ Update Sidebar — add Settings link.
 
 ---
 
-### Task 14B.1 — Account Number Masking
+### Task 14B.1 — Account Number Masking ✅ DONE
 
 **Backend**
 
@@ -1572,7 +1572,7 @@ Apply masking to:
 
 ---
 
-### Task 14B.2 — Sensitive Field Encryption at Rest
+### Task 14B.2 — Sensitive Field Encryption at Rest ✅ DONE
 
 **Backend**
 
@@ -1595,7 +1595,7 @@ Migration: update column types to accommodate encrypted data length.
 
 ---
 
-### Task 14B.3 — Request/Response Logging Sanitization
+### Task 14B.3 — Request/Response Logging Sanitization ✅ DONE
 
 **Backend**
 

@@ -166,7 +166,7 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="w-64 min-h-screen bg-forge-surface text-forge-text flex flex-col flex-shrink-0 border-r border-forge-border">
+    <aside className="w-64 h-screen bg-forge-surface text-forge-text flex flex-col flex-shrink-0 border-r border-forge-border sticky top-0 overflow-y-auto">
       {/* Logo */}
       <div className="px-6 py-6 border-b border-forge-border">
         <Link href="/dashboard" className="flex items-center gap-3">

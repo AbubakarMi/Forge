@@ -21,6 +21,7 @@ public class TransactionProcessingService : ITransactionProcessingService
     private readonly IAuditService _auditService;
     private readonly INotificationService _notificationService;
     private readonly IWebhookService _webhookService;
+    private readonly IEmailService _emailService;
     private readonly TransactionLimits _limits;
     private readonly ILogger<TransactionProcessingService> _logger;
 
@@ -31,6 +32,7 @@ public class TransactionProcessingService : ITransactionProcessingService
         IAuditService auditService,
         INotificationService notificationService,
         IWebhookService webhookService,
+        IEmailService emailService,
         IOptions<TransactionLimits> limits,
         ILogger<TransactionProcessingService> logger)
     {
@@ -40,6 +42,7 @@ public class TransactionProcessingService : ITransactionProcessingService
         _auditService = auditService;
         _notificationService = notificationService;
         _webhookService = webhookService;
+        _emailService = emailService;
         _limits = limits.Value;
         _logger = logger;
     }
@@ -130,6 +133,19 @@ public class TransactionProcessingService : ITransactionProcessingService
                 }
                 catch { /* webhook delivery is best-effort */ }
             });
+
+            // Fire-and-forget email notification to org owner
+            var owner = await _context.OrganizationMembers
+                .Include(m => m.User)
+                .FirstOrDefaultAsync(m => m.OrganizationId == batch.OrganizationId && m.Role == "owner");
+
+            if (owner != null)
+            {
+                if (updatedBatch.Status == "completed")
+                    _ = _emailService.SendBatchCompletedAsync(owner.User.Email, batch.FileName, batch.TotalRecords, updatedBatch.SuccessCount, batch.TotalAmount);
+                else
+                    _ = _emailService.SendBatchFailedAsync(owner.User.Email, batch.FileName, batch.TotalRecords, updatedBatch.FailedCount, updatedBatch.SuccessCount);
+            }
         }
     }
 

@@ -1,9 +1,13 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { apiKeyService } from '@/services/apiKeyService'
 import { ApiKey, ApiKeyCreated } from '@/types'
 import EmptyState from '@/components/ui/EmptyState'
+import Pagination from '@/components/ui/Pagination'
+import ConfirmModal from '@/components/ui/ConfirmModal'
+
+const PAGE_SIZE = 10
 
 type Permission = 'read' | 'write' | 'admin'
 
@@ -46,6 +50,8 @@ export default function ApiKeysPage() {
   const [selectedPermission, setSelectedPermission] = useState<Permission>('read')
   const [createdKey, setCreatedKey] = useState<ApiKeyCreated | null>(null)
   const [copied, setCopied] = useState(false)
+  const [page, setPage] = useState(1)
+  const [confirmRevokeId, setConfirmRevokeId] = useState<string | null>(null)
 
   const fetchKeys = useCallback(async () => {
     setLoading(true)
@@ -64,6 +70,12 @@ export default function ApiKeysPage() {
     fetchKeys()
   }, [fetchKeys])
 
+  const totalPages = Math.ceil(keys.length / PAGE_SIZE)
+  const paginatedKeys = useMemo(
+    () => keys.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [keys, page]
+  )
+
   const handleCreateKey = async () => {
     setCreating(true)
     setError('')
@@ -80,7 +92,7 @@ export default function ApiKeysPage() {
   }
 
   const handleRevoke = async (id: string) => {
-    if (!confirm('Are you sure you want to revoke this API key? This action cannot be undone.')) return
+    setConfirmRevokeId(null)
     setRevokingId(id)
     setError('')
     try {
@@ -197,7 +209,7 @@ export default function ApiKeysPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {keys.map((apiKey) => (
+                {paginatedKeys.map((apiKey) => (
                   <tr key={apiKey.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4">
                       <code className="font-mono text-xs bg-gray-100 text-gray-800 px-2.5 py-1 rounded border border-gray-200">
@@ -233,7 +245,7 @@ export default function ApiKeysPage() {
                     <td className="px-6 py-4 text-right">
                       {!apiKey.isRevoked ? (
                         <button
-                          onClick={() => handleRevoke(apiKey.id)}
+                          onClick={() => setConfirmRevokeId(apiKey.id)}
                           disabled={revokingId === apiKey.id}
                           className="px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
@@ -249,7 +261,24 @@ export default function ApiKeysPage() {
             </table>
           </div>
         )}
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          totalCount={keys.length}
+          onPageChange={setPage}
+        />
       </div>
+
+      {/* Revoke Confirmation */}
+      <ConfirmModal
+        open={!!confirmRevokeId}
+        title="Revoke API Key"
+        message="This will permanently revoke this API key. Any applications using it will lose access immediately. This action cannot be undone."
+        confirmLabel="Revoke Key"
+        variant="danger"
+        onConfirm={() => confirmRevokeId && handleRevoke(confirmRevokeId)}
+        onCancel={() => setConfirmRevokeId(null)}
+      />
 
       {/* One-time Key Display Modal */}
       {createdKey && (

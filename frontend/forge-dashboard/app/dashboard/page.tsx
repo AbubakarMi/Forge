@@ -8,6 +8,10 @@ import { TransactionDetail, TransactionStats, PayoutBatch } from '@/types'
 import StatusBadge from '@/components/ui/StatusBadge'
 import StatCard from '@/components/ui/StatCard'
 import TransactionDetailModal from '@/components/dashboard/TransactionDetailModal'
+import {
+  PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+} from 'recharts'
 
 function formatNGN(amount: number): string {
   return new Intl.NumberFormat('en-NG', {
@@ -15,6 +19,19 @@ function formatNGN(amount: number): string {
     currency: 'NGN',
     minimumFractionDigits: 2,
   }).format(amount)
+}
+
+function formatCompact(amount: number): string {
+  if (amount >= 1_000_000) return `${(amount / 1_000_000).toFixed(1)}M`
+  if (amount >= 1_000) return `${(amount / 1_000).toFixed(1)}K`
+  return amount.toString()
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  Completed: '#10b981',
+  Failed: '#ef4444',
+  Pending: '#f59e0b',
+  Processing: '#6366f1',
 }
 
 export default function DashboardPage() {
@@ -39,10 +56,12 @@ export default function DashboardPage() {
         ])
 
         setStats(statsData)
-        setRecentBatches(batchesData.data)
-        setRecentTransactions(txData.data)
+        const batches = batchesData?.data ?? []
+        const transactions = txData?.data ?? []
+        setRecentBatches(batches)
+        setRecentTransactions(transactions)
         setActiveBatchCount(
-          batchesData.data.filter((b) => b.status === 'processing' || b.status === 'pending').length
+          batches.filter((b) => b.status === 'processing' || b.status === 'pending').length
         )
       } catch {
         setError('Failed to load dashboard data. Please refresh.')
@@ -53,6 +72,23 @@ export default function DashboardPage() {
 
     fetchData()
   }, [])
+
+  // Chart data
+  const pieData = stats
+    ? [
+        { name: 'Completed', value: stats.successCount },
+        { name: 'Failed', value: stats.failedCount },
+        { name: 'Pending', value: stats.pendingCount },
+      ].filter((d) => d.value > 0)
+    : []
+
+  const barData = [...recentBatches]
+    .reverse()
+    .map((b) => ({
+      name: b.fileName.length > 12 ? b.fileName.slice(0, 12) + '...' : b.fileName,
+      amount: b.totalAmount,
+      records: b.totalRecords,
+    }))
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
@@ -135,6 +171,96 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* Charts Row */}
+      {!loading && stats && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Transaction Status Breakdown - Donut Chart */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+            <h3 className="text-sm font-semibold text-gray-900 mb-4">Transaction Status</h3>
+            {pieData.length === 0 ? (
+              <div className="h-48 flex items-center justify-center">
+                <p className="text-gray-400 text-sm">No transaction data yet</p>
+              </div>
+            ) : (
+              <div className="flex items-center gap-6">
+                <div className="w-48 h-48">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={80}
+                        paddingAngle={3}
+                        dataKey="value"
+                        stroke="none"
+                      >
+                        {pieData.map((entry) => (
+                          <Cell key={entry.name} fill={STATUS_COLORS[entry.name]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value: number) => [value.toLocaleString(), 'Count']}
+                        contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex flex-col gap-3">
+                  {pieData.map((entry) => (
+                    <div key={entry.name} className="flex items-center gap-2.5">
+                      <div
+                        className="w-3 h-3 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: STATUS_COLORS[entry.name] }}
+                      />
+                      <span className="text-sm text-gray-600">{entry.name}</span>
+                      <span className="text-sm font-semibold text-gray-900 ml-auto">{entry.value.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Batch Volume - Bar Chart */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+            <h3 className="text-sm font-semibold text-gray-900 mb-4">Recent Batch Volume</h3>
+            {barData.length === 0 ? (
+              <div className="h-48 flex items-center justify-center">
+                <p className="text-gray-400 text-sm">No batch data yet</p>
+              </div>
+            ) : (
+              <div className="h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={barData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                    <XAxis
+                      dataKey="name"
+                      tick={{ fontSize: 11, fill: '#9ca3af' }}
+                      axisLine={{ stroke: '#e5e7eb' }}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: '#9ca3af' }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(v) => formatCompact(v)}
+                    />
+                    <Tooltip
+                      formatter={(value: number) => [formatNGN(value), 'Volume']}
+                      contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '12px' }}
+                      cursor={{ fill: '#f9fafb' }}
+                    />
+                    <Bar dataKey="amount" fill="#6366f1" radius={[6, 6, 0, 0]} maxBarSize={40} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Recent Batches */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
         <div className="px-6 py-4 border-b border-gray-200">
@@ -146,7 +272,7 @@ export default function DashboardPage() {
               <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />
             ))}
           </div>
-        ) : recentBatches.length === 0 ? (
+        ) : !recentBatches || recentBatches.length === 0 ? (
           <div className="p-12 text-center">
             <p className="text-gray-500 text-sm">No batches yet. Upload a CSV to get started.</p>
           </div>
@@ -166,7 +292,7 @@ export default function DashboardPage() {
                 {recentBatches.map((batch) => (
                   <tr
                     key={batch.id}
-                    onClick={() => router.push(`/dashboard/batches/${batch.id}`)}
+                    onClick={() => router.push(`/dashboard/payout-batches/${batch.id}`)}
                     className="hover:bg-gray-50 transition-colors cursor-pointer"
                   >
                     <td className="px-6 py-4 font-medium text-gray-900">{batch.fileName}</td>
@@ -201,7 +327,7 @@ export default function DashboardPage() {
               <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />
             ))}
           </div>
-        ) : recentTransactions.length === 0 ? (
+        ) : !recentTransactions || recentTransactions.length === 0 ? (
           <div className="p-12 text-center">
             <p className="text-gray-500 text-sm">No transactions yet. Upload a batch to start processing.</p>
           </div>

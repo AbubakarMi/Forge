@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
-import { payoutBatchService } from '@/services/payoutBatchService'
+import { motion, AnimatePresence } from 'framer-motion'
+import { payoutBatchService, BatchSummary } from '@/services/payoutBatchService'
 import { reportService } from '@/services/reportService'
 import { PayoutBatchDetail, TransactionDetail } from '@/types'
 import StatusBadge from '@/components/ui/StatusBadge'
 import ProgressBar from '@/components/ui/ProgressBar'
+import ConfirmModal from '@/components/ui/ConfirmModal'
 import { showToast } from '@/hooks/useToast'
 
 type TabFilter = 'all' | 'pending' | 'completed' | 'failed'
@@ -18,6 +19,7 @@ export default function PayoutBatchDetailPage() {
   const id = params.id as string
 
   const [batch, setBatch] = useState<PayoutBatchDetail | null>(null)
+  const [summary, setSummary] = useState<BatchSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<TabFilter>('all')
   const [showRetryConfirm, setShowRetryConfirm] = useState(false)
@@ -25,11 +27,16 @@ export default function PayoutBatchDetailPage() {
   const [retrying, setRetrying] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [exportingCsv, setExportingCsv] = useState(false)
+  const [selectedTxn, setSelectedTxn] = useState<TransactionDetail | null>(null)
 
   const loadBatch = useCallback(async () => {
     try {
-      const data = await payoutBatchService.getBatchDetail(id)
+      const [data, sum] = await Promise.all([
+        payoutBatchService.getBatchDetail(id),
+        payoutBatchService.getBatchSummary(id).catch(() => null),
+      ])
       setBatch(data)
+      setSummary(sum)
     } catch {
       showToast('error', 'Failed to load batch details.')
     } finally {
@@ -40,6 +47,13 @@ export default function PayoutBatchDetailPage() {
   useEffect(() => {
     loadBatch()
   }, [loadBatch])
+
+  // Auto-refresh while processing
+  useEffect(() => {
+    if (!batch || (batch.status !== 'pending' && batch.status !== 'processing')) return
+    const interval = setInterval(loadBatch, 5000)
+    return () => clearInterval(interval)
+  }, [batch?.status, loadBatch])
 
   const handleRetry = async () => {
     setRetrying(true)
@@ -133,6 +147,7 @@ export default function PayoutBatchDetailPage() {
     (t) => t.status.toLowerCase() === 'failed'
   )
   const isPending = batch.status.toLowerCase() === 'pending'
+  const isActive = batch.status === 'pending' || batch.status === 'processing'
 
   const tabs: { key: TabFilter; label: string; count: number }[] = [
     { key: 'all', label: 'All', count: batch.transactions.length },
@@ -157,8 +172,17 @@ export default function PayoutBatchDetailPage() {
             </button>
             <h1 className="text-2xl font-bold text-gray-900">{batch.fileName}</h1>
             <StatusBadge status={batch.status} />
+            {isActive && (
+              <span className="flex items-center gap-1 text-xs text-blue-600">
+                <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                Auto-refreshing
+              </span>
+            )}
           </div>
-          <p className="text-sm text-gray-500 ml-8">Created {formatDate(batch.createdAt)}</p>
+          <p className="text-sm text-gray-500 ml-8">
+            Created {formatDate(batch.createdAt)}
+            {batch.completedAt && <> &middot; Completed {formatDate(batch.completedAt)}</>}
+          </p>
         </div>
 
         <div className="flex gap-2">
@@ -201,19 +225,30 @@ export default function PayoutBatchDetailPage() {
         <div className="bg-white rounded-xl border border-green-200 shadow-sm p-4 bg-green-50/50">
           <p className="text-xs text-green-600 font-medium">Success</p>
           <p className="text-2xl font-bold text-green-700 mt-1">{batch.successCount}</p>
+          {summary && <p className="text-xs text-green-500 mt-0.5">{formatCurrency(summary.successAmount)}</p>}
         </div>
         <div className="bg-white rounded-xl border border-red-200 shadow-sm p-4 bg-red-50/50">
           <p className="text-xs text-red-600 font-medium">Failed</p>
           <p className="text-2xl font-bold text-red-700 mt-1">{batch.failedCount}</p>
+          {summary && <p className="text-xs text-red-500 mt-0.5">{formatCurrency(summary.failedAmount)}</p>}
         </div>
         <div className="bg-white rounded-xl border border-yellow-200 shadow-sm p-4 bg-yellow-50/50">
           <p className="text-xs text-yellow-600 font-medium">Pending</p>
           <p className="text-2xl font-bold text-yellow-700 mt-1">{batch.pendingCount}</p>
+          {summary && <p className="text-xs text-yellow-500 mt-0.5">{formatCurrency(summary.pendingAmount)}</p>}
         </div>
       </div>
 
       {/* Progress bar */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-6">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-medium text-gray-500">Batch Progress</span>
+          {summary && (
+            <span className="text-xs font-semibold text-gray-700">
+              {(summary.successRate * 100).toFixed(1)}% success rate
+            </span>
+          )}
+        </div>
         <ProgressBar
           success={batch.successCount}
           failed={batch.failedCount}
@@ -249,30 +284,32 @@ export default function PayoutBatchDetailPage() {
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Recipient</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Raw Bank</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Normalized Bank</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Bank</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Account</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Confidence</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Failure Reason</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filteredTransactions.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-sm text-gray-400">
+                  <td colSpan={6} className="px-4 py-12 text-center text-sm text-gray-400">
                     No transactions found.
                   </td>
                 </tr>
               ) : (
                 filteredTransactions.map((txn) => (
-                  <tr key={txn.id} className="hover:bg-gray-50 transition-colors">
+                  <tr
+                    key={txn.id}
+                    onClick={() => setSelectedTxn(txn)}
+                    className="hover:bg-gray-50 transition-colors cursor-pointer"
+                  >
                     <td className="px-4 py-3 text-sm font-medium text-gray-900">{txn.recipientName}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">{txn.rawBankName}</td>
                     <td className="px-4 py-3 text-sm text-gray-700">
-                      {txn.normalizedBankName || (
-                        <span className="text-gray-400 italic">--</span>
+                      {txn.normalizedBankName || txn.rawBankName}
+                      {txn.normalizedBankName && txn.rawBankName !== txn.normalizedBankName && (
+                        <span className="block text-xs text-gray-400">{txn.rawBankName}</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
@@ -283,23 +320,6 @@ export default function PayoutBatchDetailPage() {
                     <td className="px-4 py-3 text-sm font-medium text-gray-900">{formatCurrency(txn.amount)}</td>
                     <td className="px-4 py-3">
                       <StatusBadge status={txn.status} />
-                    </td>
-                    <td className="px-4 py-3">
-                      {txn.normalizationConfidence != null ? (
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
-                            txn.normalizationConfidence >= 0.9
-                              ? 'bg-green-100 text-green-800'
-                              : txn.normalizationConfidence >= 0.7
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-red-100 text-red-800'
-                          }`}
-                        >
-                          {(txn.normalizationConfidence * 100).toFixed(0)}%
-                        </span>
-                      ) : (
-                        <span className="text-gray-400 text-xs">--</span>
-                      )}
                     </td>
                     <td className="px-4 py-3 text-sm text-red-600 max-w-[200px] truncate">
                       {txn.failureReason || <span className="text-gray-400">--</span>}
@@ -312,59 +332,141 @@ export default function PayoutBatchDetailPage() {
         </div>
       </motion.div>
 
+      {/* Transaction Detail Drawer */}
+      <AnimatePresence>
+        {selectedTxn && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/40 z-40"
+              onClick={() => setSelectedTxn(null)}
+            />
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed right-0 top-0 h-full w-full max-w-lg bg-white shadow-2xl z-50 overflow-y-auto"
+            >
+              <div className="p-6">
+                {/* Drawer header */}
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-lg font-semibold text-gray-900">Transaction Details</h2>
+                  <button
+                    onClick={() => setSelectedTxn(null)}
+                    className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Status */}
+                <div className="flex items-center gap-3 mb-6">
+                  <StatusBadge status={selectedTxn.status} />
+                  {selectedTxn.normalizationConfidence != null && (
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                        selectedTxn.normalizationConfidence >= 0.9
+                          ? 'bg-green-100 text-green-800'
+                          : selectedTxn.normalizationConfidence >= 0.7
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}
+                    >
+                      {(selectedTxn.normalizationConfidence * 100).toFixed(0)}% confidence
+                    </span>
+                  )}
+                </div>
+
+                {/* Details grid */}
+                <div className="space-y-4">
+                  <DetailRow label="Recipient" value={selectedTxn.recipientName} />
+                  <DetailRow label="Amount" value={formatCurrency(selectedTxn.amount)} bold />
+                  <DetailRow label="Currency" value={selectedTxn.currency} />
+                  <div className="border-t border-gray-100 pt-4">
+                    <DetailRow label="Raw Bank Name" value={selectedTxn.rawBankName} />
+                    <DetailRow label="Normalized Bank" value={selectedTxn.normalizedBankName || '--'} />
+                    {selectedTxn.bank && (
+                      <DetailRow label="Bank Code" value={selectedTxn.bank.code} />
+                    )}
+                    <DetailRow
+                      label="Account Number"
+                      value={
+                        <code className="text-sm bg-gray-100 text-gray-700 px-2 py-1 rounded font-mono">
+                          {selectedTxn.accountNumber}
+                        </code>
+                      }
+                    />
+                  </div>
+                  <div className="border-t border-gray-100 pt-4">
+                    <DetailRow label="Transaction ID" value={
+                      <code className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded font-mono break-all">
+                        {selectedTxn.id}
+                      </code>
+                    } />
+                    <DetailRow label="Batch ID" value={
+                      <code className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded font-mono break-all">
+                        {selectedTxn.payoutBatchId}
+                      </code>
+                    } />
+                    <DetailRow label="Created" value={formatDate(selectedTxn.createdAt)} />
+                    {selectedTxn.processedAt && (
+                      <DetailRow label="Processed" value={formatDate(selectedTxn.processedAt)} />
+                    )}
+                    <DetailRow label="Retry Count" value={String(selectedTxn.retryCount)} />
+                  </div>
+
+                  {selectedTxn.failureReason && (
+                    <div className="border-t border-gray-100 pt-4">
+                      <p className="text-xs font-medium text-gray-500 mb-1">Failure Reason</p>
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                        <p className="text-sm text-red-700">{selectedTxn.failureReason}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
       {/* Retry confirmation modal */}
-      {showRetryConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">Retry Failed Transactions?</h2>
-            <p className="text-sm text-gray-500 mb-6">
-              This will re-queue all failed transactions in this batch for processing.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={handleRetry}
-                disabled={retrying}
-                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-orange-600 rounded-lg hover:bg-orange-700 disabled:opacity-50 transition-colors"
-              >
-                {retrying ? 'Retrying...' : 'Confirm Retry'}
-              </button>
-              <button
-                onClick={() => setShowRetryConfirm(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        open={showRetryConfirm}
+        title="Retry Failed Transactions?"
+        message="This will re-queue all failed transactions in this batch for processing."
+        confirmLabel={retrying ? 'Retrying...' : 'Confirm Retry'}
+        variant="warning"
+        onConfirm={handleRetry}
+        onCancel={() => setShowRetryConfirm(false)}
+      />
 
       {/* Cancel confirmation modal */}
-      {showCancelConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">Cancel This Batch?</h2>
-            <p className="text-sm text-gray-500 mb-6">
-              This will cancel all pending transactions in this batch. This action cannot be undone.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={handleCancel}
-                disabled={cancelling}
-                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
-              >
-                {cancelling ? 'Cancelling...' : 'Confirm Cancel'}
-              </button>
-              <button
-                onClick={() => setShowCancelConfirm(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Go Back
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        open={showCancelConfirm}
+        title="Cancel This Batch?"
+        message="This will cancel all pending transactions in this batch. This action cannot be undone."
+        confirmLabel={cancelling ? 'Cancelling...' : 'Confirm Cancel'}
+        variant="danger"
+        onConfirm={handleCancel}
+        onCancel={() => setShowCancelConfirm(false)}
+      />
+    </div>
+  )
+}
+
+function DetailRow({ label, value, bold }: { label: string; value: React.ReactNode; bold?: boolean }) {
+  return (
+    <div className="flex items-start justify-between py-1.5">
+      <span className="text-sm text-gray-500 flex-shrink-0">{label}</span>
+      <span className={`text-sm text-right ml-4 ${bold ? 'font-semibold text-gray-900' : 'text-gray-900'}`}>
+        {value}
+      </span>
     </div>
   )
 }

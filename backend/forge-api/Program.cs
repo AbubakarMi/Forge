@@ -15,6 +15,11 @@ builder.Services.Configure<JwtSettings>(
     builder.Configuration.GetSection("JwtSettings"));
 builder.Services.Configure<TransactionLimits>(
     builder.Configuration.GetSection("TransactionLimits"));
+builder.Services.Configure<SmtpSettings>(
+    builder.Configuration.GetSection("SmtpSettings"));
+builder.Services.Configure<EncryptionSettings>(
+    builder.Configuration.GetSection("EncryptionSettings"));
+builder.Services.AddSingleton<IEncryptionService, EncryptionService>();
 
 // ── Database ─────────────────────────────────────────────────────────────────
 builder.Services.AddDatabaseConfig(builder.Configuration);
@@ -111,6 +116,7 @@ builder.Services.AddScoped<CurrentOrganizationProvider>();
 builder.Services.AddScoped<ICurrentOrganizationProvider>(sp => sp.GetRequiredService<CurrentOrganizationProvider>());
 builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ITransactionProcessingService, TransactionProcessingService>();
 builder.Services.AddHttpClient<IWebhookService, WebhookService>(client =>
 {
@@ -118,6 +124,7 @@ builder.Services.AddHttpClient<IWebhookService, WebhookService>(client =>
 });
 builder.Services.AddSingleton<BatchProcessingQueue>();
 builder.Services.AddHostedService<BatchProcessingJob>();
+builder.Services.AddHostedService<WeeklySummaryEmailJob>();
 
 builder.Services.AddControllers();
 
@@ -129,11 +136,13 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ForgeApi.Data.AppDbContext>();
     await ForgeApi.Data.Seeds.BankSeeder.SeedAsync(db);
+    await ForgeApi.Data.Seeds.BankAliasSeeder.SeedAsync(db);
 }
 
 // ── Middleware Pipeline ───────────────────────────────────────────────────────
 // Order matters: exception handler first, then rate limiting, then auth
 app.UseMiddleware<ExceptionMiddleware>();
+app.UseMiddleware<RequestLoggingMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {

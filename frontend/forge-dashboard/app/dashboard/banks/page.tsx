@@ -1,8 +1,11 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo, Fragment } from 'react'
 import { bankService } from '@/services/bankService'
 import { showToast } from '@/hooks/useToast'
+import Pagination from '@/components/ui/Pagination'
+
+const PAGE_SIZE = 25
 
 interface BankItem {
   id: string
@@ -33,6 +36,7 @@ export default function BanksPage() {
   const [bankForm, setBankForm] = useState({ name: '', code: '', country: 'Nigeria' })
   const [aliasInput, setAliasInput] = useState('')
   const [adding, setAdding] = useState(false)
+  const [page, setPage] = useState(1)
 
   useEffect(() => {
     loadBanks()
@@ -51,6 +55,7 @@ export default function BanksPage() {
 
   const handleSearch = useCallback(async (query: string) => {
     setSearch(query)
+    setPage(1)
     if (!query.trim()) {
       loadBanks()
       return
@@ -62,6 +67,12 @@ export default function BanksPage() {
       // silent
     }
   }, [])
+
+  const totalPages = Math.ceil(banks.length / PAGE_SIZE)
+  const paginatedBanks = useMemo(
+    () => banks.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [banks, page]
+  )
 
   const handleExpand = async (id: string) => {
     if (expandedId === id) {
@@ -158,10 +169,9 @@ export default function BanksPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {banks.map((bank) => (
-              <>
+            {paginatedBanks.map((bank) => (
+              <Fragment key={bank.id}>
                 <tr
-                  key={bank.id}
                   onClick={() => handleExpand(bank.id)}
                   className="hover:bg-gray-50 transition-colors cursor-pointer"
                 >
@@ -208,10 +218,16 @@ export default function BanksPage() {
                     </td>
                   </tr>
                 )}
-              </>
+              </Fragment>
             ))}
           </tbody>
         </table>
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          totalCount={banks.length}
+          onPageChange={setPage}
+        />
       </div>
 
       {/* Add Bank Modal */}

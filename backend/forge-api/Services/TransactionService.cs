@@ -1,6 +1,7 @@
 using ForgeApi.Data;
 using ForgeApi.DTOs.Transactions;
 using ForgeApi.Exceptions;
+using ForgeApi.Utils;
 using Microsoft.EntityFrameworkCore;
 
 namespace ForgeApi.Services;
@@ -77,6 +78,8 @@ public class TransactionService : ITransactionService
             })
             .ToListAsync();
 
+        transactions.ForEach(t => MaskSensitiveFields(t));
+
         return (transactions, totalCount);
     }
 
@@ -91,7 +94,7 @@ public class TransactionService : ITransactionService
         if (transaction.OrganizationId != organizationId)
             throw new ForbiddenException("You do not have access to this transaction.");
 
-        return new TransactionDetailResponse
+        var response = new TransactionDetailResponse
         {
             Id = transaction.Id,
             PayoutBatchId = transaction.PayoutBatchId,
@@ -111,6 +114,9 @@ public class TransactionService : ITransactionService
             BankName = transaction.Bank?.Name,
             BatchFileName = transaction.PayoutBatch?.FileName ?? string.Empty
         };
+
+        MaskSensitiveFields(response);
+        return response;
     }
 
     public async Task<TransactionStatsResponse> GetTransactionStatsAsync(Guid organizationId)
@@ -149,5 +155,11 @@ public class TransactionService : ITransactionService
             CompletedAmount = completedAmount,
             SuccessRate = successRate
         };
+    }
+
+    private static TransactionResponse MaskSensitiveFields(TransactionResponse response)
+    {
+        response.AccountNumber = DataMasking.MaskAccountNumber(response.AccountNumber);
+        return response;
     }
 }

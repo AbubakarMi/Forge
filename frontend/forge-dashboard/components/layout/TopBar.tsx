@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import Cookies from 'js-cookie'
 import NotificationBell from './NotificationBell'
@@ -31,17 +32,19 @@ export default function TopBar() {
   const pathname = usePathname()
   const pageTitle = getPageTitle(pathname)
 
-  const token = typeof window !== 'undefined' ? Cookies.get('forge_token') : null
-  const userEmail = token
-    ? (() => {
+  const [userEmail, setUserEmail] = useState('User')
+
+  useEffect(() => {
+    const token = Cookies.get('forge_token')
+    if (token) {
       try {
         const payload = JSON.parse(atob(token.split('.')[1]))
-        return payload.email || payload.sub || 'User'
+        setUserEmail(payload.email || payload.sub || 'User')
       } catch {
-        return 'User'
+        setUserEmail('User')
       }
-    })()
-    : 'User'
+    }
+  }, [])
 
   const initials = userEmail
     .split('@')[0]

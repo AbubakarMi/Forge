@@ -151,22 +151,39 @@ public class BankService : IBankService
 
         var normalized = aliasText.Trim().ToLower();
 
-        // Exact match on name
+        // Stage 1: Exact match on name (case-insensitive)
         var bank = await _context.Banks
             .FirstOrDefaultAsync(b => b.IsActive && EF.Functions.ILike(b.Name, normalized));
 
         if (bank != null) return bank;
 
-        // Exact match on code
+        // Stage 2: Exact match on code
         bank = await _context.Banks
             .FirstOrDefaultAsync(b => b.IsActive && EF.Functions.ILike(b.Code, normalized));
 
         if (bank != null) return bank;
 
-        // Match via alias
+        // Stage 3: Exact match via alias
         var alias = await _context.BankAliases
             .Include(a => a.Bank)
-            .FirstOrDefaultAsync(a => EF.Functions.ILike(a.Alias, normalized));
+            .FirstOrDefaultAsync(a => a.Bank.IsActive && EF.Functions.ILike(a.Alias, normalized));
+
+        if (alias != null) return alias.Bank;
+
+        // Stage 4: Contains match on name (e.g. "Zenith" matches "Zenith Bank")
+        bank = await _context.Banks
+            .Where(b => b.IsActive && EF.Functions.ILike(b.Name, $"%{normalized}%"))
+            .OrderBy(b => b.Name.Length) // prefer shortest (most specific) match
+            .FirstOrDefaultAsync();
+
+        if (bank != null) return bank;
+
+        // Stage 5: Contains match on alias
+        alias = await _context.BankAliases
+            .Include(a => a.Bank)
+            .Where(a => a.Bank.IsActive && EF.Functions.ILike(a.Alias, $"%{normalized}%"))
+            .OrderBy(a => a.Alias.Length)
+            .FirstOrDefaultAsync();
 
         return alias?.Bank;
     }

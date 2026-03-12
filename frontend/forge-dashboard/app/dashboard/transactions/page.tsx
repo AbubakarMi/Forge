@@ -17,12 +17,14 @@ function formatNGN(amount: number): string {
   }).format(amount)
 }
 
+const SKELETON_WIDTHS = ['75%', '65%', '55%', '70%', '50%', '60%']
+
 function SkeletonRow() {
   return (
     <tr>
-      {Array.from({ length: 6 }).map((_, i) => (
+      {SKELETON_WIDTHS.map((w, i) => (
         <td key={i} className="py-4 pr-4">
-          <div className="h-4 bg-gray-200 rounded animate-pulse" style={{ width: `${60 + Math.random() * 40}%` }} />
+          <div className="h-4 bg-gray-200 rounded animate-pulse" style={{ width: w }} />
         </td>
       ))}
     </tr>

@@ -4,13 +4,14 @@ import { useState } from 'react'
 import apiClient from '@/services/apiClient'
 
 interface NormResult {
-  normalizedBank: string | null
-  bankCode: string | null
+  // Backend uses snake_case via JsonPropertyName attributes
+  normalized_bank: string | null
+  bank_code: string | null
   confidence: number
-  originalInput: string
-  matchType: string
-  bestGuess?: string | null
-  bestGuessCode?: string | null
+  original_input: string
+  match_type: string
+  best_guess?: string | null
+  best_guess_code?: string | null
 }
 
 interface ApiResponseWrapper<T> {
@@ -102,15 +103,15 @@ export default function NormalizationPage() {
           <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-2">
             <div className="flex items-center gap-3">
               <span className="text-sm text-gray-500">Input:</span>
-              <span className="text-sm font-medium text-gray-900">{singleResult.originalInput}</span>
+              <span className="text-sm font-medium text-gray-900">{singleResult.original_input}</span>
             </div>
             <div className="flex items-center gap-3">
               <span className="text-sm text-gray-500">Result:</span>
               <span className="text-sm font-bold text-gray-900">
-                {singleResult.normalizedBank ?? (singleResult.bestGuess ? `${singleResult.bestGuess} (rejected)` : 'No match')}
+                {singleResult.normalized_bank ?? (singleResult.best_guess ? `${singleResult.best_guess} (rejected)` : 'No match')}
               </span>
-              {singleResult.bankCode && (
-                <code className="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded font-mono">{singleResult.bankCode}</code>
+              {singleResult.bank_code && (
+                <code className="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded font-mono">{singleResult.bank_code}</code>
               )}
             </div>
             <div className="flex items-center gap-3">
@@ -121,7 +122,7 @@ export default function NormalizationPage() {
             </div>
             <div className="flex items-center gap-3">
               <span className="text-sm text-gray-500">Match type:</span>
-              <span className="text-xs text-gray-600">{singleResult.matchType}</span>
+              <span className="text-xs text-gray-600">{singleResult.match_type}</span>
             </div>
           </div>
         )}
@@ -160,13 +161,13 @@ export default function NormalizationPage() {
               <tbody className="divide-y divide-gray-100">
                 {batchResults.map((r, i) => (
                   <tr key={i} className="hover:bg-gray-50">
-                    <td className="px-4 py-2.5 text-sm text-gray-900">{r.originalInput}</td>
+                    <td className="px-4 py-2.5 text-sm text-gray-900">{r.original_input}</td>
                     <td className="px-4 py-2.5 text-sm font-medium text-gray-900">
-                      {r.normalizedBank ?? <span className="text-red-500">No match</span>}
+                      {r.normalized_bank ?? <span className="text-red-500">No match</span>}
                     </td>
                     <td className="px-4 py-2.5">
-                      {r.bankCode && (
-                        <code className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded font-mono">{r.bankCode}</code>
+                      {r.bank_code && (
+                        <code className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded font-mono">{r.bank_code}</code>
                       )}
                     </td>
                     <td className="px-4 py-2.5">
@@ -174,7 +175,7 @@ export default function NormalizationPage() {
                         {(r.confidence * 100).toFixed(1)}%
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 text-xs text-gray-500">{r.matchType}</td>
+                    <td className="px-4 py-2.5 text-xs text-gray-500">{r.match_type}</td>
                   </tr>
                 ))}
               </tbody>

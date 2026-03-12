@@ -4,6 +4,7 @@ using ForgeApi.DTOs.Transactions;
 using ForgeApi.DTOs.PayoutBatches;
 using ForgeApi.Jobs;
 using ForgeApi.Services;
+using ForgeApi.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -138,7 +139,7 @@ public class DeveloperApiController : ControllerBase
             RecipientName = t.RecipientName,
             BankName = t.RawBankName,
             NormalizedBankName = t.NormalizedBankName,
-            AccountNumber = t.AccountNumber,
+            AccountNumber = DataMasking.MaskAccountNumber(t.AccountNumber),
             Amount = t.Amount,
             Currency = t.Currency,
             Status = t.Status,

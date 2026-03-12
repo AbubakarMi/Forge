@@ -1,10 +1,14 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { webhookService, WebhookEndpoint } from '@/services/webhookService'
 import { showToast } from '@/hooks/useToast'
 import EmptyState from '@/components/ui/EmptyState'
+import Pagination from '@/components/ui/Pagination'
+import ConfirmModal from '@/components/ui/ConfirmModal'
+
+const PAGE_SIZE = 10
 
 const AVAILABLE_EVENTS = [
   'batch.completed',
@@ -39,9 +43,13 @@ export default function WebhooksPage() {
   const [createdWebhook, setCreatedWebhook] = useState<WebhookEndpoint | null>(null)
   const [copied, setCopied] = useState(false)
 
+  // Pagination
+  const [page, setPage] = useState(1)
+
   // Action states
   const [testingId, setTestingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   const fetchWebhooks = useCallback(async () => {
     setLoading(true)
@@ -59,6 +67,12 @@ export default function WebhooksPage() {
   useEffect(() => {
     fetchWebhooks()
   }, [fetchWebhooks])
+
+  const totalPages = Math.ceil(webhooks.length / PAGE_SIZE)
+  const paginatedWebhooks = useMemo(
+    () => webhooks.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [webhooks, page]
+  )
 
   const handleToggleEvent = (event: string) => {
     setSelectedEvents((prev) =>
@@ -128,7 +142,7 @@ export default function WebhooksPage() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this webhook? This action cannot be undone.')) return
+    setConfirmDeleteId(null)
     setDeletingId(id)
     try {
       await webhookService.removeWebhook(id)
@@ -207,7 +221,7 @@ export default function WebhooksPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {webhooks.map((wh) => (
+                {paginatedWebhooks.map((wh) => (
                   <tr
                     key={wh.id}
                     onClick={() => router.push(`/dashboard/webhooks/${wh.id}`)}
@@ -258,7 +272,7 @@ export default function WebhooksPage() {
                           {testingId === wh.id ? 'Sending...' : 'Test'}
                         </button>
                         <button
-                          onClick={() => handleDelete(wh.id)}
+                          onClick={() => setConfirmDeleteId(wh.id)}
                           disabled={deletingId === wh.id}
                           className="px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
@@ -272,7 +286,24 @@ export default function WebhooksPage() {
             </table>
           </div>
         )}
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          totalCount={webhooks.length}
+          onPageChange={setPage}
+        />
       </div>
+
+      {/* Delete Confirmation */}
+      <ConfirmModal
+        open={!!confirmDeleteId}
+        title="Delete Webhook"
+        message="This will permanently delete this webhook endpoint. You will stop receiving event notifications at this URL. This action cannot be undone."
+        confirmLabel="Delete Webhook"
+        variant="danger"
+        onConfirm={() => confirmDeleteId && handleDelete(confirmDeleteId)}
+        onCancel={() => setConfirmDeleteId(null)}
+      />
 
       {/* Add Webhook Modal */}
       {showAddModal && (

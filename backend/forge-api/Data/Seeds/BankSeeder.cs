@@ -7,12 +7,29 @@ public static class BankSeeder
 {
     public static async Task SeedAsync(AppDbContext context)
     {
-        if (await context.Banks.AnyAsync())
-            return;
-
         var banks = GetBanks();
 
-        context.Banks.AddRange(banks);
+        // Deduplicate seed data itself by Code and Name (keep first occurrence)
+        var seenCodes = new HashSet<string>();
+        var seenNames = new HashSet<string>();
+        var uniqueBanks = new List<Bank>();
+        foreach (var b in banks)
+        {
+            if (seenCodes.Add(b.Code) && seenNames.Add(b.Name))
+                uniqueBanks.Add(b);
+        }
+
+        var existingCodes = new HashSet<string>(await context.Banks.Select(b => b.Code).ToListAsync());
+        var existingNames = new HashSet<string>(await context.Banks.Select(b => b.Name).ToListAsync());
+
+        var newBanks = uniqueBanks
+            .Where(b => !existingCodes.Contains(b.Code) && !existingNames.Contains(b.Name))
+            .ToList();
+
+        if (newBanks.Count == 0)
+            return;
+
+        context.Banks.AddRange(newBanks);
         await context.SaveChangesAsync();
     }
 
