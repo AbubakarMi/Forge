@@ -10,7 +10,7 @@ public interface ITransactionValidationService
     List<string> ValidateAmount(decimal amount);
     Task<List<string>> ValidateBatchAmountAsync(decimal totalAmount, Guid organizationId);
     Task<bool> IsDuplicateAsync(string accountNumber, Guid? bankId, decimal amount, Guid organizationId);
-    List<string> ValidateAccountNumber(string accountNumber, string? bankCode = null);
+    (List<string> Errors, List<string> Warnings) ValidateAccountNumber(string accountNumber, string? bankCode = null);
 }
 
 public class TransactionValidationService : ITransactionValidationService
@@ -81,14 +81,15 @@ public class TransactionValidationService : ITransactionValidationService
     /// Validates Nigerian bank account numbers using NUBAN format.
     /// NUBAN: 10 digits, where the 10th digit is a check digit.
     /// </summary>
-    public List<string> ValidateAccountNumber(string accountNumber, string? bankCode = null)
+    public (List<string> Errors, List<string> Warnings) ValidateAccountNumber(string accountNumber, string? bankCode = null)
     {
         var errors = new List<string>();
+        var warnings = new List<string>();
 
         if (string.IsNullOrWhiteSpace(accountNumber))
         {
             errors.Add("Account number is required.");
-            return errors;
+            return (errors, warnings);
         }
 
         // Remove spaces and dashes
@@ -97,30 +98,36 @@ public class TransactionValidationService : ITransactionValidationService
         if (cleaned.Length != 10)
         {
             errors.Add($"Account number must be exactly 10 digits (got {cleaned.Length}).");
-            return errors;
+            return (errors, warnings);
         }
 
         if (!cleaned.All(char.IsDigit))
         {
             errors.Add("Account number must contain only digits.");
-            return errors;
+            return (errors, warnings);
         }
 
         // NUBAN check digit validation (if bank code is available)
-        // Skip for PSBs (1xxxxx), MFBs (09xxxx), and mobile money (5xxxxx)
-        // — these institutions may use non-NUBAN account number formats
-        if (!string.IsNullOrEmpty(bankCode) && bankCode.Length >= 3
-            && !bankCode.StartsWith("1")    // Payment Service Banks (OPay, PalmPay, etc.)
-            && !bankCode.StartsWith("09")   // Microfinance Banks (Kuda, Moniepoint, etc.)
-            && !bankCode.StartsWith("5"))   // Mobile Money Operators
+        // Only validate for standard commercial/merchant banks with 3-digit codes.
+        // Skip for PSBs/fintechs (6-digit codes, 99xxxx), MFBs (09xxxx), mobile money (1x, 5x)
+        var skipNuban = string.IsNullOrEmpty(bankCode)
+            || bankCode.Length > 3
+            || bankCode.StartsWith("1")
+            || bankCode.StartsWith("09")
+            || bankCode.StartsWith("5")
+            || bankCode.StartsWith("99");
+
+        if (!skipNuban)
         {
-            if (!ValidateNubanCheckDigit(bankCode, cleaned))
+            if (!ValidateNubanCheckDigit(bankCode!, cleaned))
             {
-                errors.Add($"The account number {cleaned} does not match bank code {bankCode}. Please double-check the account number and bank name.");
+                // NUBAN mismatch is a warning, not a hard error.
+                // The actual bank API will do the final validation.
+                warnings.Add($"Account number {cleaned} may not match bank code {bankCode}. Please verify the account number.");
             }
         }
 
-        return errors;
+        return (errors, warnings);
     }
 
     /// <summary>

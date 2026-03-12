@@ -66,7 +66,7 @@ public class TransactionValidationServiceTests
     {
         var svc = CreateService();
 
-        var errors = svc.ValidateAccountNumber("12345");
+        var (errors, _) = svc.ValidateAccountNumber("12345");
 
         errors.Should().HaveCount(1);
         errors[0].Should().Contain("exactly 10 digits");
@@ -77,7 +77,7 @@ public class TransactionValidationServiceTests
     {
         var svc = CreateService();
 
-        var errors = svc.ValidateAccountNumber("12345ABCDE");
+        var (errors, _) = svc.ValidateAccountNumber("12345ABCDE");
 
         errors.Should().HaveCount(1);
         errors[0].Should().Contain("only digits");
@@ -88,7 +88,7 @@ public class TransactionValidationServiceTests
     {
         var svc = CreateService();
 
-        var errors = svc.ValidateAccountNumber("1234567890");
+        var (errors, _) = svc.ValidateAccountNumber("1234567890");
 
         errors.Should().BeEmpty();
     }

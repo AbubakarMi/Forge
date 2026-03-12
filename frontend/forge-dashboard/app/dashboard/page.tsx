@@ -170,77 +170,68 @@ export default function DashboardPage() {
 
       {/* Stat Cards - 4 column grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Volume */}
+        {/* Total Payout Volume */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0 }}
           className="bg-white rounded-2xl border border-gray-100 p-5 relative overflow-hidden"
         >
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center">
               <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <span className="text-[10px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full uppercase tracking-wide">Volume</span>
           </div>
-          <p className="text-2xl font-extrabold text-gray-900 tracking-tight">{formatCompact(totalVolume)}</p>
-          <p className="text-xs text-gray-400 mt-1">{formatCompact(completedVolume)} settled</p>
-          {/* Subtle decorative line */}
+          <p className="text-xs font-medium text-gray-500 mb-1">Total Payout Volume</p>
+          <p className="text-xl font-extrabold text-gray-900 tracking-tight">{formatNGN(totalVolume)}</p>
+          <p className="text-xs text-gray-400 mt-1.5">{formatNGN(completedVolume)} successfully paid out</p>
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-indigo-500/10">
             <div className="h-full bg-indigo-500 transition-all duration-1000" style={{ width: totalVolume > 0 ? `${Math.min((completedVolume / totalVolume) * 100, 100)}%` : '0%' }} />
           </div>
         </motion.div>
 
-        {/* Transactions */}
+        {/* Total Transactions */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 }}
           className="bg-white rounded-2xl border border-gray-100 p-5 relative overflow-hidden"
         >
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
               <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
             </div>
-            <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full uppercase tracking-wide">Total</span>
           </div>
+          <p className="text-xs font-medium text-gray-500 mb-1">Total Transactions</p>
           <p className="text-2xl font-extrabold text-gray-900">{totalTx.toLocaleString()}</p>
-          <div className="flex items-center gap-2 mt-1">
-            {activeBatches > 0 && (
-              <span className="text-xs text-blue-600 font-medium">{activeBatches} active</span>
-            )}
-            {scheduledBatches > 0 && (
-              <span className="text-xs text-indigo-500 font-medium">{scheduledBatches} scheduled</span>
-            )}
-            {activeBatches === 0 && scheduledBatches === 0 && (
-              <span className="text-xs text-gray-400">transactions</span>
-            )}
-          </div>
+          <p className="text-xs text-gray-400 mt-1.5">
+            {activeBatches > 0 && <>{activeBatches} batch{activeBatches !== 1 ? 'es' : ''} in progress</>}
+            {activeBatches > 0 && scheduledBatches > 0 && ', '}
+            {scheduledBatches > 0 && <>{scheduledBatches} scheduled</>}
+            {activeBatches === 0 && scheduledBatches === 0 && 'across all batches'}
+          </p>
         </motion.div>
 
-        {/* Success Rate */}
+        {/* Successful Payments */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
           className="bg-white rounded-2xl border border-gray-100 p-5 relative overflow-hidden"
         >
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center">
               <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full uppercase tracking-wide">Success</span>
           </div>
-          <div className="flex items-baseline gap-1.5">
-            <p className="text-2xl font-extrabold text-emerald-600">{successRate.toFixed(1)}%</p>
-            <span className="text-xs text-gray-400">rate</span>
-          </div>
+          <p className="text-xs font-medium text-gray-500 mb-1">Successful Payments</p>
+          <p className="text-2xl font-extrabold text-emerald-600">{completedTx.toLocaleString()}</p>
           <div className="flex items-center gap-3 mt-2">
             <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
               <motion.div
@@ -250,32 +241,31 @@ export default function DashboardPage() {
                 transition={{ duration: 1, ease: 'easeOut' }}
               />
             </div>
-            <span className="text-xs font-bold text-emerald-600">{completedTx.toLocaleString()}</span>
+            <span className="text-xs font-bold text-emerald-600">{successRate.toFixed(1)}%</span>
           </div>
+          <p className="text-xs text-gray-400 mt-1.5">{completedTx.toLocaleString()} of {totalTx.toLocaleString()} completed</p>
         </motion.div>
 
-        {/* Issues */}
+        {/* Failed & Pending */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
           className="bg-white rounded-2xl border border-gray-100 p-5 relative overflow-hidden"
         >
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center">
               <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
               </svg>
             </div>
-            <span className="text-[10px] font-semibold text-red-500 bg-red-50 px-2 py-0.5 rounded-full uppercase tracking-wide">Issues</span>
           </div>
+          <p className="text-xs font-medium text-gray-500 mb-1">Failed Transactions</p>
           <p className="text-2xl font-extrabold text-red-600">{failedTx.toLocaleString()}</p>
-          <div className="flex items-center gap-3 mt-1">
-            <span className="text-xs text-amber-500 font-medium">{(pendingTx + processingTx).toLocaleString()} pending</span>
-            {failedTx > 0 && totalTx > 0 && (
-              <span className="text-xs text-red-400">{((failedTx / totalTx) * 100).toFixed(1)}% failure</span>
-            )}
-          </div>
+          <p className="text-xs text-gray-400 mt-1.5">
+            {(pendingTx + processingTx).toLocaleString()} still pending
+            {failedTx > 0 && totalTx > 0 && <> &middot; {((failedTx / totalTx) * 100).toFixed(1)}% failure rate</>}
+          </p>
         </motion.div>
       </div>
 
@@ -288,8 +278,8 @@ export default function DashboardPage() {
           transition={{ delay: 0.2 }}
           className="bg-white rounded-2xl border border-gray-100 p-6"
         >
-          <h3 className="text-sm font-semibold text-gray-900">Transaction Status</h3>
-          <p className="text-xs text-gray-400 mt-0.5 mb-5">Distribution overview</p>
+          <h3 className="text-sm font-semibold text-gray-900">Payment Status Breakdown</h3>
+          <p className="text-xs text-gray-400 mt-0.5 mb-5">How your transactions are distributed</p>
 
           {totalTx === 0 ? (
             <div className="h-48 flex items-center justify-center">
@@ -328,7 +318,7 @@ export default function DashboardPage() {
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <span className="text-3xl font-extrabold text-gray-900">{successRate.toFixed(0)}%</span>
-                  <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">Success</span>
+                  <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">Success Rate</span>
                 </div>
               </div>
 
@@ -360,8 +350,8 @@ export default function DashboardPage() {
         >
           <div className="flex items-center justify-between mb-5">
             <div>
-              <h3 className="text-sm font-semibold text-gray-900">Batch Volume</h3>
-              <p className="text-xs text-gray-400 mt-0.5">Recent batch amounts</p>
+              <h3 className="text-sm font-semibold text-gray-900">Recent Batch Payouts</h3>
+              <p className="text-xs text-gray-400 mt-0.5">Amount per batch</p>
             </div>
             <button
               onClick={() => router.push('/dashboard/payout-batches')}
@@ -593,7 +583,7 @@ export default function DashboardPage() {
         {[
           {
             label: 'Bulk Upload',
-            desc: 'Upload CSV for payouts',
+            desc: 'Upload a CSV to send payments',
             icon: (
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
@@ -604,7 +594,7 @@ export default function DashboardPage() {
           },
           {
             label: 'Payout Batches',
-            desc: 'View all batches',
+            desc: 'Manage all your payout batches',
             icon: (
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -615,7 +605,7 @@ export default function DashboardPage() {
           },
           {
             label: 'Transactions',
-            desc: 'Browse all payments',
+            desc: 'View individual payment details',
             icon: (
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -626,7 +616,7 @@ export default function DashboardPage() {
           },
           {
             label: 'Audit Logs',
-            desc: 'Activity history',
+            desc: 'Review all account activity',
             icon: (
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />

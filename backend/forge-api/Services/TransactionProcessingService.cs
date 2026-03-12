@@ -196,7 +196,7 @@ public class TransactionProcessingService : ITransactionProcessingService
 
             // Validate account number (NUBAN)
             var bankCode = transaction.Bank?.Code;
-            var accountErrors = _validationService.ValidateAccountNumber(transaction.AccountNumber, bankCode);
+            var (accountErrors, _) = _validationService.ValidateAccountNumber(transaction.AccountNumber, bankCode);
             if (accountErrors.Count > 0)
             {
                 throw new AppValidationException("Account validation failed.", accountErrors);
@@ -263,8 +263,8 @@ public class TransactionProcessingService : ITransactionProcessingService
                     errors.Add($"Bank '{transaction.RawBankName}' is inactive. Please verify the bank name.");
 
                 // Validate account number
-                var accountErrors = _validationService.ValidateAccountNumber(transaction.AccountNumber, bank.Code);
-                errors.AddRange(accountErrors);
+                var (acctErrors, _) = _validationService.ValidateAccountNumber(transaction.AccountNumber, bank.Code);
+                errors.AddRange(acctErrors);
             }
             else
             {

@@ -123,7 +123,7 @@ public class PayoutBatchService : IPayoutBatchService
             }
 
             // Validate account number (NUBAN)
-            var accountErrors = _transactionValidation.ValidateAccountNumber(
+            var (accountErrors, accountWarnings) = _transactionValidation.ValidateAccountNumber(
                 record.AccountNumber, normResult?.BankCode);
             foreach (var err in accountErrors)
             {
@@ -132,6 +132,16 @@ public class PayoutBatchService : IPayoutBatchService
                     RowNumber = rowNumber,
                     Field = "AccountNumber",
                     Message = err
+                });
+            }
+            // Warnings are informational — record in errors list for the UI but don't fail the transaction
+            foreach (var warn in accountWarnings)
+            {
+                errors.Add(new BatchValidationError
+                {
+                    RowNumber = rowNumber,
+                    Field = "AccountNumber",
+                    Message = warn
                 });
             }
 
@@ -460,9 +470,11 @@ public class PayoutBatchService : IPayoutBatchService
             foreach (var err in amountErrors)
                 rowErrors.Add(new BatchValidationError { RowNumber = rowNumber, Field = "Amount", Message = err });
 
-            var accountErrors = _transactionValidation.ValidateAccountNumber(record.AccountNumber, normResult?.BankCode);
-            foreach (var err in accountErrors)
+            var (accountErrors2, accountWarnings2) = _transactionValidation.ValidateAccountNumber(record.AccountNumber, normResult?.BankCode);
+            foreach (var err in accountErrors2)
                 rowErrors.Add(new BatchValidationError { RowNumber = rowNumber, Field = "AccountNumber", Message = err });
+            foreach (var warn in accountWarnings2)
+                errors.Add(new BatchValidationError { RowNumber = rowNumber, Field = "AccountNumber", Message = warn });
 
             if (rowErrors.Count > 0)
                 errors.AddRange(rowErrors);
