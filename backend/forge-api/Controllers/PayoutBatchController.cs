@@ -51,10 +51,24 @@ public class PayoutBatchController : ControllerBase
             _orgProvider.OrganizationId,
             _orgProvider.UserId);
 
-        // Enqueue batch for background processing
-        await _batchQueue.EnqueueAsync(result.BatchId);
+        return Ok(ApiResponse<CreateBatchFromFileResponse>.Ok(result, "File validated. Please confirm batch to proceed."));
+    }
 
-        return Ok(ApiResponse<CreateBatchFromFileResponse>.Ok(result, "Batch created successfully."));
+    /// <summary>
+    /// Confirm a draft batch with a name and enqueue for processing.
+    /// </summary>
+    [HttpPost("{id:guid}/confirm")]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ConfirmBatch(Guid id, [FromBody] ConfirmBatchRequest request)
+    {
+        await _batchService.ConfirmBatchAsync(
+            id, request.BatchName, _orgProvider.OrganizationId, _orgProvider.UserId);
+
+        // Now enqueue for background processing
+        await _batchQueue.EnqueueAsync(id);
+
+        return Ok(ApiResponse.Ok(message: "Batch confirmed and queued for processing."));
     }
 
     /// <summary>

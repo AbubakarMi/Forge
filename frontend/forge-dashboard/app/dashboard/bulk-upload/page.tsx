@@ -9,7 +9,7 @@ import StatusBadge from '@/components/ui/StatusBadge'
 import ConfirmModal from '@/components/ui/ConfirmModal'
 import { showToast } from '@/hooks/useToast'
 
-type Step = 'upload' | 'normalizing' | 'review' | 'processing'
+type Step = 'upload' | 'normalizing' | 'review' | 'create' | 'processing'
 
 export default function BulkUploadPage() {
   const router = useRouter()
@@ -26,6 +26,11 @@ export default function BulkUploadPage() {
   // Normalizing step
   const [normProgress, setNormProgress] = useState(0)
   const [normStage, setNormStage] = useState('')
+
+  // Create batch step
+  const [batchName, setBatchName] = useState('')
+  const [batchNameError, setBatchNameError] = useState('')
+  const [confirming, setConfirming] = useState(false)
 
   // Processing step
   const [processingDetail, setProcessingDetail] = useState<PayoutBatchDetail | null>(null)
@@ -198,7 +203,6 @@ export default function BulkUploadPage() {
       const result = await payoutBatchService.confirmDuplicates(uploadResult.batchId)
       showToast('success', `${result.confirmedCount} transaction(s) confirmed and re-queued for processing.`)
       setShowDuplicateConfirm(false)
-      // Refresh batch detail
       const detail = await payoutBatchService.getBatchDetail(uploadResult.batchId)
       setBatchDetail(detail)
     } catch {
@@ -208,11 +212,38 @@ export default function BulkUploadPage() {
     }
   }
 
-  const handleProceedToPayment = () => {
-    setStep('processing')
-    setProcessingDetail(null)
-    setSummary(null)
-    setProcessingInBackground(false)
+  const handleProceedToCreate = () => {
+    setStep('create')
+    setBatchName('')
+    setBatchNameError('')
+  }
+
+  const handleConfirmBatch = async () => {
+    if (!uploadResult) return
+    const name = batchName.trim()
+    if (!name) {
+      setBatchNameError('Batch name is required.')
+      return
+    }
+    if (name.length < 3) {
+      setBatchNameError('Batch name must be at least 3 characters.')
+      return
+    }
+    setBatchNameError('')
+    setConfirming(true)
+    try {
+      await payoutBatchService.confirmBatch(uploadResult.batchId, name)
+      showToast('success', 'Batch confirmed and queued for processing.')
+      setStep('processing')
+      setProcessingDetail(null)
+      setSummary(null)
+      setProcessingInBackground(false)
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      setBatchNameError(msg || 'Failed to confirm batch. Please try a different name.')
+    } finally {
+      setConfirming(false)
+    }
   }
 
   const handlePayInBackground = () => {
@@ -229,12 +260,15 @@ export default function BulkUploadPage() {
     setProcessingDetail(null)
     setSummary(null)
     setNormProgress(0)
+    setBatchName('')
+    setBatchNameError('')
   }
 
   const stepLabels: { key: Step; label: string }[] = [
     { key: 'upload', label: 'Upload' },
-    { key: 'normalizing', label: 'Normalize' },
+    { key: 'normalizing', label: 'Validate' },
     { key: 'review', label: 'Review' },
+    { key: 'create', label: 'Create Batch' },
     { key: 'processing', label: 'Payment' },
   ]
   const stepIndex = stepLabels.findIndex(s => s.key === step)
@@ -271,13 +305,13 @@ export default function BulkUploadPage() {
                 i === stepIndex ? 'text-gray-900' : i < stepIndex ? 'text-green-600' : 'text-gray-400'
               }`}>{s.label}</span>
             </div>
-            {i < stepLabels.length - 1 && <div className="w-8 h-0.5 bg-gray-200" />}
+            {i < stepLabels.length - 1 && <div className="w-6 h-0.5 bg-gray-200" />}
           </div>
         ))}
       </div>
 
       <AnimatePresence mode="wait">
-        {/* ── Step 1: Upload ── */}
+        {/* Step 1: Upload */}
         {step === 'upload' && (
           <motion.div key="upload" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
             <div
@@ -344,13 +378,13 @@ export default function BulkUploadPage() {
             <div className="mt-4 flex items-center justify-end">
               <button onClick={handleUpload} disabled={!file}
                 className="px-6 py-2.5 text-sm font-semibold text-white bg-forge-primary rounded-lg hover:bg-forge-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                Upload &amp; Process
+                Upload &amp; Validate
               </button>
             </div>
           </motion.div>
         )}
 
-        {/* ── Step 2: Normalizing ── */}
+        {/* Step 2: Normalizing */}
         {step === 'normalizing' && (
           <motion.div key="normalizing" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
             className="bg-white rounded-xl border border-gray-200 shadow-sm p-8">
@@ -384,12 +418,12 @@ export default function BulkUploadPage() {
           </motion.div>
         )}
 
-        {/* ── Step 3: Review ── */}
+        {/* Step 3: Review */}
         {step === 'review' && uploadResult && (
           <motion.div key="review" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-1">Validation Results</h2>
-              <p className="text-sm text-gray-500 mb-4">Review the parsed and normalized records before proceeding to payment.</p>
+              <p className="text-sm text-gray-500 mb-4">Review the parsed and normalized records before proceeding.</p>
 
               {/* Summary cards */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
@@ -421,7 +455,7 @@ export default function BulkUploadPage() {
                 </div>
               )}
 
-              {/* ── Duplicate warnings ── */}
+              {/* Duplicate warnings */}
               {failedTransactions.duplicates.length > 0 && (
                 <div className="mb-6">
                   <div className="flex items-center justify-between mb-2">
@@ -464,7 +498,7 @@ export default function BulkUploadPage() {
                 </div>
               )}
 
-              {/* ── NUBAN / Account errors ── */}
+              {/* NUBAN / Account errors */}
               {failedTransactions.nuban.length > 0 && (
                 <div className="mb-6">
                   <h3 className="text-sm font-semibold text-red-700 mb-2 flex items-center gap-2">
@@ -497,18 +531,13 @@ export default function BulkUploadPage() {
                       </tbody>
                     </table>
                   </div>
-                  <p className="text-xs text-red-500 mt-2">
-                    Please verify the account numbers and bank names. Re-upload the corrected CSV to fix these.
-                  </p>
                 </div>
               )}
 
-              {/* ── Other errors ── */}
+              {/* Other errors */}
               {failedTransactions.other.length > 0 && (
                 <div className="mb-6">
-                  <h3 className="text-sm font-semibold text-red-700 mb-2">
-                    Other Errors ({failedTransactions.other.length})
-                  </h3>
+                  <h3 className="text-sm font-semibold text-red-700 mb-2">Other Errors ({failedTransactions.other.length})</h3>
                   <div className="bg-red-50 rounded-lg border border-red-200 overflow-hidden max-h-64 overflow-y-auto">
                     <table className="w-full text-sm">
                       <thead>
@@ -554,13 +583,9 @@ export default function BulkUploadPage() {
 
               {/* Actions */}
               <div className="flex items-center gap-3">
-                <button onClick={handleProceedToPayment} disabled={validCount === 0}
+                <button onClick={handleProceedToCreate} disabled={validCount === 0}
                   className="px-5 py-2.5 text-sm font-semibold text-white bg-forge-primary rounded-lg hover:bg-forge-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                  Proceed to Payment ({validCount} records)
-                </button>
-                <button onClick={() => router.push(`/dashboard/payout-batches/${uploadResult.batchId}`)}
-                  className="px-5 py-2.5 text-sm font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                  View Batch Details
+                  Continue ({validCount} valid records)
                 </button>
                 <button onClick={handleReset}
                   className="px-5 py-2.5 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors">
@@ -569,7 +594,6 @@ export default function BulkUploadPage() {
               </div>
             </div>
 
-            {/* Duplicate confirmation modal */}
             <ConfirmModal
               open={showDuplicateConfirm}
               title="Confirm These Are Not Duplicates?"
@@ -582,7 +606,87 @@ export default function BulkUploadPage() {
           </motion.div>
         )}
 
-        {/* ── Step 4: Processing / Payment ── */}
+        {/* Step 4: Create Batch (name it) */}
+        {step === 'create' && uploadResult && (
+          <motion.div key="create" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 max-w-lg mx-auto">
+              <div className="text-center mb-6">
+                <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-7 h-7 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                  </svg>
+                </div>
+                <h2 className="text-lg font-semibold text-gray-900">Name Your Batch</h2>
+                <p className="text-sm text-gray-500 mt-1">Give this batch a meaningful name so you can easily find it later.</p>
+              </div>
+
+              {/* Summary */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div>
+                    <p className="text-xs text-gray-500">Records</p>
+                    <p className="text-lg font-bold text-gray-900">{validCount}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Amount</p>
+                    <p className="text-lg font-bold text-gray-900">{formatCurrency(uploadResult.totalAmount)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">File</p>
+                    <p className="text-sm font-medium text-gray-700 truncate">{uploadResult.fileName}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Batch name input */}
+              <div className="mb-6">
+                <label htmlFor="batchName" className="block text-sm font-medium text-gray-700 mb-2">
+                  Batch Name
+                </label>
+                <input
+                  id="batchName"
+                  type="text"
+                  value={batchName}
+                  onChange={(e) => { setBatchName(e.target.value); setBatchNameError('') }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleConfirmBatch() }}
+                  placeholder="e.g. March Salary, Vendor Payments Q1"
+                  className={`w-full px-4 py-3 border rounded-lg text-sm focus:ring-2 focus:ring-forge-primary focus:border-transparent transition-colors ${
+                    batchNameError ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                  }`}
+                  autoFocus
+                />
+                {batchNameError && (
+                  <p className="text-xs text-red-600 mt-1.5">{batchNameError}</p>
+                )}
+                <p className="text-xs text-gray-400 mt-1.5">Must be unique. You cannot create two batches with the same name.</p>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleConfirmBatch}
+                  disabled={confirming || !batchName.trim()}
+                  className="flex-1 px-5 py-3 text-sm font-semibold text-white bg-forge-primary rounded-lg hover:bg-forge-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {confirming ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Confirming...
+                    </span>
+                  ) : (
+                    'Confirm & Start Payment'
+                  )}
+                </button>
+                <button onClick={() => setStep('review')}
+                  className="px-5 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors">
+                  Back
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Step 5: Processing / Payment */}
         {step === 'processing' && (
           <motion.div key="processing" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
@@ -592,6 +696,7 @@ export default function BulkUploadPage() {
                     <div className="w-12 h-12 border-4 border-forge-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
                     <p className="text-lg font-semibold text-gray-900">Processing Payments</p>
                     <p className="text-sm text-gray-500 mt-1">{processed} of {total} transactions processed</p>
+                    {batchName && <p className="text-xs text-gray-400 mt-1">Batch: {batchName}</p>}
                   </div>
                   <div className="max-w-md mx-auto mb-6">
                     <div className="flex items-center justify-between mb-2">
@@ -648,6 +753,7 @@ export default function BulkUploadPage() {
                     <p className="text-lg font-semibold text-gray-900">
                       {processingDetail?.status === 'completed' ? 'All Payments Completed' : 'Batch Processing Finished'}
                     </p>
+                    {batchName && <p className="text-sm text-gray-500 mt-0.5">{batchName}</p>}
                     {processingDetail?.status !== 'completed' && (
                       <p className="text-sm text-amber-600 mt-1">Some transactions failed</p>
                     )}

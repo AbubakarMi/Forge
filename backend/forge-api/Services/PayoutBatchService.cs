@@ -11,6 +11,7 @@ namespace ForgeApi.Services;
 public interface IPayoutBatchService
 {
     Task<CreateBatchFromFileResponse> CreateBatchFromFileAsync(Stream file, string fileName, Guid orgId, Guid userId);
+    Task ConfirmBatchAsync(Guid batchId, string batchName, Guid orgId, Guid userId);
     Task<(List<PayoutBatchResponse> Batches, int TotalCount)> GetBatchesAsync(Guid orgId, BatchFilterRequest filters);
     Task<PayoutBatchDetailResponse> GetBatchDetailAsync(Guid batchId, Guid orgId);
     Task<PayoutBatchSummaryResponse> GetBatchSummaryAsync(Guid batchId, Guid orgId);
@@ -190,7 +191,7 @@ public class PayoutBatchService : IPayoutBatchService
             TotalAmount = totalAmount,
             PendingCount = pendingCount,
             FailedCount = failedCount,
-            Status = "pending"
+            Status = "draft"
         };
 
         await using var dbTransaction = await _context.Database.BeginTransactionAsync();
@@ -237,17 +238,59 @@ public class PayoutBatchService : IPayoutBatchService
         };
     }
 
+    public async Task ConfirmBatchAsync(Guid batchId, string batchName, Guid orgId, Guid userId)
+    {
+        var batch = await _context.PayoutBatches
+            .FirstOrDefaultAsync(b => b.Id == batchId)
+            ?? throw new NotFoundException($"Batch '{batchId}' not found.");
+
+        if (batch.OrganizationId != orgId)
+            throw new ForbiddenException();
+
+        if (batch.Status != "draft")
+            throw new AppValidationException("Only draft batches can be confirmed.");
+
+        // Validate batch name is not empty
+        if (string.IsNullOrWhiteSpace(batchName))
+            throw new AppValidationException("Batch name is required.");
+
+        batchName = batchName.Trim();
+
+        // Check for duplicate batch name within the org
+        var duplicate = await _context.PayoutBatches
+            .AnyAsync(b => b.OrganizationId == orgId
+                        && b.BatchName == batchName
+                        && b.Id != batchId
+                        && b.Status != "draft");
+
+        if (duplicate)
+            throw new AppValidationException($"A batch named '{batchName}' already exists. Please choose a different name.");
+
+        batch.BatchName = batchName;
+        batch.Status = "pending";
+        await _context.SaveChangesAsync();
+
+        await _audit.LogAsync(
+            "batch.confirmed",
+            "PayoutBatch",
+            batch.Id.ToString(),
+            userId,
+            orgId,
+            details: $"Batch confirmed with name: {batchName}");
+    }
+
     public async Task<(List<PayoutBatchResponse> Batches, int TotalCount)> GetBatchesAsync(
         Guid orgId, BatchFilterRequest filters)
     {
         var query = _context.PayoutBatches
-            .Where(b => b.OrganizationId == orgId);
+            .Where(b => b.OrganizationId == orgId && b.Status != "draft");
 
         if (!string.IsNullOrWhiteSpace(filters.Status))
             query = query.Where(b => b.Status == filters.Status);
 
         if (!string.IsNullOrWhiteSpace(filters.FileName))
-            query = query.Where(b => b.FileName.Contains(filters.FileName));
+            query = query.Where(b => b.FileName.Contains(filters.FileName)
+                || (b.BatchName != null && b.BatchName.Contains(filters.FileName)));
 
         if (filters.From.HasValue)
             query = query.Where(b => b.CreatedAt >= filters.From.Value);
@@ -265,6 +308,7 @@ public class PayoutBatchService : IPayoutBatchService
             {
                 Id = b.Id,
                 FileName = b.FileName,
+                BatchName = b.BatchName,
                 TotalRecords = b.TotalRecords,
                 TotalAmount = b.TotalAmount,
                 Status = b.Status,
@@ -293,6 +337,7 @@ public class PayoutBatchService : IPayoutBatchService
         {
             Id = batch.Id,
             FileName = batch.FileName,
+            BatchName = batch.BatchName,
             TotalRecords = batch.TotalRecords,
             TotalAmount = batch.TotalAmount,
             Status = batch.Status,
@@ -331,11 +376,11 @@ public class PayoutBatchService : IPayoutBatchService
             throw new ForbiddenException();
 
         var transactions = batch.Transactions;
-        var successAmount = transactions.Where(t => t.Status == "success").Sum(t => t.Amount);
+        var successAmount = transactions.Where(t => t.Status == "completed").Sum(t => t.Amount);
         var failedAmount = transactions.Where(t => t.Status == "failed").Sum(t => t.Amount);
-        var pendingAmount = transactions.Where(t => t.Status == "pending").Sum(t => t.Amount);
+        var pendingAmount = transactions.Where(t => t.Status is "pending" or "processing").Sum(t => t.Amount);
         var totalRecords = transactions.Count;
-        var successCount = transactions.Count(t => t.Status == "success");
+        var successCount = transactions.Count(t => t.Status == "completed");
 
         return new PayoutBatchSummaryResponse
         {
@@ -450,8 +495,8 @@ public class PayoutBatchService : IPayoutBatchService
         if (batch.OrganizationId != orgId)
             throw new ForbiddenException();
 
-        if (batch.Status != "pending")
-            throw new AppValidationException($"Cannot cancel batch with status '{batch.Status}'. Only pending batches can be cancelled.");
+        if (batch.Status != "pending" && batch.Status != "draft")
+            throw new AppValidationException($"Cannot cancel batch with status '{batch.Status}'. Only pending or draft batches can be cancelled.");
 
         batch.Status = "cancelled";
 

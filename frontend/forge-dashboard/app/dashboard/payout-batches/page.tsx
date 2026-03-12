@@ -119,12 +119,12 @@ export default function PayoutBatchesPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">File Name</label>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Batch Name</label>
             <input
               type="text"
               value={fileName}
               onChange={(e) => { setFileName(e.target.value); setPage(1) }}
-              placeholder="Search file name..."
+              placeholder="Search batch name..."
               className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-forge-primary focus:border-transparent"
             />
           </div>
@@ -179,7 +179,7 @@ export default function PayoutBatchesPage() {
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">File Name</th>
+                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Batch Name</th>
                 <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Records</th>
                 <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Amount</th>
                 <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
@@ -194,7 +194,7 @@ export default function PayoutBatchesPage() {
                   onClick={() => router.push(`/dashboard/payout-batches/${batch.id}`)}
                   className="hover:bg-gray-50 transition-colors cursor-pointer"
                 >
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{batch.fileName}</td>
+                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{batch.batchName || batch.fileName}</td>
                   <td className="px-6 py-4 text-sm text-gray-600">{batch.totalRecords}</td>
                   <td className="px-6 py-4 text-sm text-gray-900 font-medium">{formatCurrency(batch.totalAmount)}</td>
                   <td className="px-6 py-4">

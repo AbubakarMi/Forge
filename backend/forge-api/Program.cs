@@ -137,6 +137,15 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<ForgeApi.Data.AppDbContext>();
     await ForgeApi.Data.Seeds.BankSeeder.SeedAsync(db);
     await ForgeApi.Data.Seeds.BankAliasSeeder.SeedAsync(db);
+
+    // Backfill BatchName for existing batches that predate the field
+    var batchesToFix = db.PayoutBatches.Where(b => b.BatchName == null).ToList();
+    foreach (var b in batchesToFix)
+    {
+        b.BatchName = System.IO.Path.GetFileNameWithoutExtension(b.FileName);
+        if (b.Status == "draft") b.Status = "pending";
+    }
+    if (batchesToFix.Count > 0) await db.SaveChangesAsync();
 }
 
 // ── Middleware Pipeline ───────────────────────────────────────────────────────

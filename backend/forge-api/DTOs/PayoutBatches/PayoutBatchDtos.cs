@@ -11,10 +11,16 @@ public class CreateBatchFromFileResponse
     public List<BatchValidationError> Errors { get; set; } = new();
 }
 
+public class ConfirmBatchRequest
+{
+    public string BatchName { get; set; } = string.Empty;
+}
+
 public class PayoutBatchResponse
 {
     public Guid Id { get; set; }
     public string FileName { get; set; } = string.Empty;
+    public string? BatchName { get; set; }
     public int TotalRecords { get; set; }
     public decimal TotalAmount { get; set; }
     public string Status { get; set; } = string.Empty;
@@ -29,6 +35,7 @@ public class PayoutBatchDetailResponse
 {
     public Guid Id { get; set; }
     public string FileName { get; set; } = string.Empty;
+    public string? BatchName { get; set; }
     public int TotalRecords { get; set; }
     public decimal TotalAmount { get; set; }
     public string Status { get; set; } = string.Empty;

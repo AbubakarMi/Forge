@@ -170,7 +170,7 @@ export default function PayoutBatchDetailPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            <h1 className="text-2xl font-bold text-gray-900">{batch.fileName}</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{batch.batchName || batch.fileName}</h1>
             <StatusBadge status={batch.status} />
             {isActive && (
               <span className="flex items-center gap-1 text-xs text-blue-600">

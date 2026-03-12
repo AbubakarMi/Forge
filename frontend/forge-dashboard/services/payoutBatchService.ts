@@ -82,6 +82,10 @@ export const payoutBatchService = {
     return response.data.data
   },
 
+  async confirmBatch(id: string, batchName: string): Promise<void> {
+    await apiClient.post(`/api/payout-batches/${id}/confirm`, { batchName })
+  },
+
   async confirmDuplicates(id: string): Promise<{ confirmedCount: number }> {
     const response = await apiClient.post<ApiResponseWrapper<{ confirmedCount: number }>>(
       `/api/payout-batches/${id}/confirm-duplicates`

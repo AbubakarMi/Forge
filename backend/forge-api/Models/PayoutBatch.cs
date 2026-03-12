@@ -6,6 +6,7 @@ public class PayoutBatch
     public Guid OrganizationId { get; set; }
     public Guid CreatedByUserId { get; set; }
     public string FileName { get; set; } = string.Empty;
+    public string? BatchName { get; set; }
     public int TotalRecords { get; set; }
     public decimal TotalAmount { get; set; }
     public int SuccessCount { get; set; }

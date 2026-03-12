@@ -72,23 +72,38 @@ public class TransactionProcessingService : ITransactionProcessingService
         await _auditService.LogAsync("batch.processing_started", "PayoutBatch",
             batchId.ToString(), organizationId: batch.OrganizationId);
 
-        // Process each pending transaction individually
+        // Process pending transactions — optimized bulk approach
         var pendingTransactions = batch.Transactions
             .Where(t => t.Status == "pending")
             .ToList();
+
+        // Pre-load all required banks to avoid N+1 queries
+        var bankIds = pendingTransactions
+            .Where(t => t.BankId.HasValue)
+            .Select(t => t.BankId!.Value)
+            .Distinct()
+            .ToList();
+        var banksMap = bankIds.Count > 0
+            ? await _context.Banks.Where(b => bankIds.Contains(b.Id)).ToDictionaryAsync(b => b.Id)
+            : new Dictionary<Guid, Models.Bank>();
 
         foreach (var transaction in pendingTransactions)
         {
             try
             {
-                await ProcessTransactionAsync(transaction.Id);
+                ProcessTransactionInMemory(transaction, banksMap);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error processing transaction {TransactionId} in batch {BatchId}.",
                     transaction.Id, batchId);
+                transaction.Status = "failed";
+                transaction.FailureReason = "Internal processing error.";
             }
         }
+
+        // Single bulk save for all transaction updates
+        await _context.SaveChangesAsync();
 
         // Recalculate final counts from DB
         var transactions = await _context.Transactions
@@ -228,6 +243,48 @@ public class TransactionProcessingService : ITransactionProcessingService
                 }
                 catch { /* webhook delivery is best-effort */ }
             });
+        }
+    }
+
+    /// <summary>
+    /// Fast in-memory transaction processing — no individual DB round-trips.
+    /// All changes are tracked by EF Core and saved in a single bulk SaveChanges.
+    /// </summary>
+    private void ProcessTransactionInMemory(Models.Transaction transaction, Dictionary<Guid, Models.Bank> banksMap)
+    {
+        var errors = new List<string>();
+
+        // Validate bank exists and is active
+        if (transaction.BankId.HasValue)
+        {
+            if (banksMap.TryGetValue(transaction.BankId.Value, out var bank))
+            {
+                if (!bank.IsActive)
+                    errors.Add($"Bank '{transaction.RawBankName}' is inactive. Please verify the bank name.");
+
+                // Validate account number
+                var accountErrors = _validationService.ValidateAccountNumber(transaction.AccountNumber, bank.Code);
+                errors.AddRange(accountErrors);
+            }
+            else
+            {
+                errors.Add($"Bank '{transaction.RawBankName}' not found. Please verify the bank name.");
+            }
+        }
+        else
+        {
+            errors.Add($"Could not identify bank for '{transaction.RawBankName}'. Please check the bank name spelling.");
+        }
+
+        if (errors.Count > 0)
+        {
+            transaction.Status = "failed";
+            transaction.FailureReason = string.Join("; ", errors);
+        }
+        else
+        {
+            transaction.Status = "completed";
+            transaction.ProcessedAt = DateTime.UtcNow;
         }
     }
 

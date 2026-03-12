@@ -116,8 +116,9 @@ public class AppDbContext : DbContext
         {
             entity.HasKey(pb => pb.Id);
             entity.Property(pb => pb.FileName).IsRequired().HasMaxLength(500);
+            entity.Property(pb => pb.BatchName).HasMaxLength(200);
             entity.Property(pb => pb.TotalAmount).HasColumnType("numeric(18,2)");
-            entity.Property(pb => pb.Status).IsRequired().HasMaxLength(30).HasDefaultValue("pending");
+            entity.Property(pb => pb.Status).IsRequired().HasMaxLength(30).HasDefaultValue("draft");
 
             entity.HasOne(pb => pb.Organization)
                   .WithMany(o => o.PayoutBatches)

@@ -87,6 +87,7 @@ export interface PayoutBatch {
   organizationId: string
   createdByUserId: string
   fileName: string
+  batchName: string | null
   totalRecords: number
   totalAmount: number
   successCount: number
@@ -136,9 +137,11 @@ export interface BatchValidationError {
 export interface TransactionStats {
   totalTransactions: number
   totalAmount: number
-  successCount: number
+  completedCount: number
   failedCount: number
   pendingCount: number
+  processingCount: number
+  completedAmount: number
   successRate: number
 }
 
