@@ -390,6 +390,7 @@ export default function BulkUploadPage() {
   const processed = processingDetail ? (processingDetail.successCount + processingDetail.failedCount) : 0
   const total = processingDetail?.totalRecords ?? uploadResult?.totalRecords ?? 0
   const validCount = batchDetail?.transactions.filter(t => t.status === 'pending').length ?? uploadResult?.validRecords ?? 0
+  const validAmount = batchDetail?.transactions.filter(t => t.status === 'pending').reduce((sum, t) => sum + t.amount, 0) ?? 0
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
@@ -554,7 +555,7 @@ export default function BulkUploadPage() {
                 </div>
                 <div className="bg-blue-50 rounded-lg p-4">
                   <p className="text-xs text-blue-600 font-medium">Payment Amount</p>
-                  <p className="text-lg font-bold text-blue-700 mt-1">{formatCurrency(batchDetail.totalAmount)}</p>
+                  <p className="text-lg font-bold text-blue-700 mt-1">{formatCurrency(validAmount)}</p>
                   <p className="text-[10px] text-blue-500 mt-0.5">{validCount} records will be paid</p>
                 </div>
               </div>
@@ -755,7 +756,7 @@ export default function BulkUploadPage() {
               <div className="flex items-center gap-3">
                 <button onClick={handleProceedToCreate} disabled={validCount === 0}
                   className="px-5 py-2.5 text-sm font-semibold text-white bg-forge-primary rounded-lg hover:bg-forge-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                  Continue with {validCount} valid record{validCount !== 1 ? 's' : ''} ({formatCurrency(batchDetail.totalAmount)})
+                  Continue with {validCount} valid record{validCount !== 1 ? 's' : ''} ({formatCurrency(validAmount)})
                 </button>
                 <button onClick={handleReset}
                   className="px-5 py-2.5 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors">
@@ -799,7 +800,7 @@ export default function BulkUploadPage() {
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Amount</p>
-                    <p className="text-lg font-bold text-gray-900">{formatCurrency(uploadResult.totalAmount)}</p>
+                    <p className="text-lg font-bold text-gray-900">{formatCurrency(validAmount)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">File</p>

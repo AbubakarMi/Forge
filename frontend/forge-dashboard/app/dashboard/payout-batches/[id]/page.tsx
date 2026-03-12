@@ -298,7 +298,7 @@ export default function PayoutBatchDetailPage() {
           <span className="text-xs font-medium text-gray-500">Batch Progress</span>
           {summary && (
             <span className="text-xs font-semibold text-gray-700">
-              {(summary.successRate * 100).toFixed(1)}% success rate
+              {summary.successRate.toFixed(1)}% success rate
             </span>
           )}
         </div>

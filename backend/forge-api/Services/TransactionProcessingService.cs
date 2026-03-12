@@ -121,6 +121,8 @@ public class TransactionProcessingService : ITransactionProcessingService
             updatedBatch.SuccessCount = successCount;
             updatedBatch.FailedCount = failedCount;
             updatedBatch.PendingCount = pendingCount;
+            updatedBatch.TotalAmount = transactions.Sum(t => t.Amount);
+            updatedBatch.TotalRecords = transactions.Count;
             updatedBatch.Status = (failedCount == 0 && pendingCount == 0) ? "completed" : "partially_failed";
             updatedBatch.CompletedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();

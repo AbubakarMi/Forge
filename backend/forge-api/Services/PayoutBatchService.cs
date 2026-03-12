@@ -60,7 +60,6 @@ public class PayoutBatchService : IPayoutBatchService
 
         // 2. Process each valid record
         var transactions = new List<Transaction>();
-        var totalAmount = 0m;
 
         // Batch-normalize all bank names at once for efficiency
         var bankNames = parseResult.ValidRecords.Select(r => r.BankName).Distinct().ToList();
@@ -176,14 +175,12 @@ public class PayoutBatchService : IPayoutBatchService
             };
 
             transactions.Add(transaction);
-
-            if (status == "pending")
-                totalAmount += record.Amount;
         }
 
         // 3. Create batch + transactions in a single DB transaction
         var pendingCount = transactions.Count(t => t.Status == "pending");
         var failedCount = transactions.Count(t => t.Status == "failed");
+        var totalAmount = transactions.Sum(t => t.Amount);
 
         var batch = new PayoutBatch
         {
@@ -371,24 +368,14 @@ public class PayoutBatchService : IPayoutBatchService
         {
             batch.FailedCount--;
             batch.PendingCount++;
-            batch.TotalAmount += transaction.Amount;
-            if (oldAmount > 0) batch.TotalAmount -= 0; // failed records weren't counted in TotalAmount
         }
         else if (!wasFailed && transaction.Status == "failed")
         {
             batch.PendingCount--;
             batch.FailedCount++;
-            batch.TotalAmount -= oldAmount;
         }
-        else if (wasFailed && transaction.Status == "failed")
-        {
-            // Still failed, no counter change
-        }
-        else
-        {
-            // Was pending, still pending — update amount difference
-            batch.TotalAmount += (transaction.Amount - oldAmount);
-        }
+        // TotalAmount includes all records, so always update the difference
+        batch.TotalAmount += (transaction.Amount - oldAmount);
 
         await _context.SaveChangesAsync();
 
@@ -443,7 +430,6 @@ public class PayoutBatchService : IPayoutBatchService
         }
 
         var newTransactions = new List<Transaction>();
-        var newValidAmount = 0m;
 
         for (var i = 0; i < parseResult.ValidRecords.Count; i++)
         {
@@ -483,22 +469,20 @@ public class PayoutBatchService : IPayoutBatchService
                 Status = status,
                 FailureReason = failureReason
             });
-
-            if (status == "pending") newValidAmount += record.Amount;
         }
 
         _context.Transactions.AddRange(newTransactions);
 
-        // Recalculate batch counters from scratch
-        var existingPending = batch.Transactions.Where(t => t.Status == "pending").ToList();
+        // Recalculate batch counters from scratch (existing non-failed + new)
+        var existingKept = batch.Transactions.Where(t => t.Status != "failed").ToList();
         var newPendingCount = newTransactions.Count(t => t.Status == "pending");
         var newFailedCount = newTransactions.Count(t => t.Status == "failed");
-        var existingPendingAmount = existingPending.Sum(t => t.Amount);
 
-        batch.TotalRecords = existingPending.Count + newTransactions.Count;
-        batch.TotalAmount = existingPendingAmount + newValidAmount;
-        batch.PendingCount = existingPending.Count + newPendingCount;
+        batch.TotalRecords = existingKept.Count + newTransactions.Count;
+        batch.TotalAmount = existingKept.Sum(t => t.Amount) + newTransactions.Sum(t => t.Amount);
+        batch.PendingCount = existingKept.Count(t => t.Status == "pending") + newPendingCount;
         batch.FailedCount = newFailedCount;
+        batch.SuccessCount = existingKept.Count(t => t.Status == "completed");
 
         await _context.SaveChangesAsync();
 
@@ -653,7 +637,6 @@ public class PayoutBatchService : IPayoutBatchService
         }
 
         var newTransactions = new List<Transaction>();
-        var addedAmount = 0m;
 
         for (var i = 0; i < parseResult.ValidRecords.Count; i++)
         {
@@ -699,11 +682,11 @@ public class PayoutBatchService : IPayoutBatchService
             };
 
             newTransactions.Add(transaction);
-            if (status == "pending") addedAmount += record.Amount;
         }
 
         var addedCount = newTransactions.Count(t => t.Status == "pending");
         var failedCount = newTransactions.Count(t => t.Status == "failed");
+        var addedAmount = newTransactions.Sum(t => t.Amount);
 
         _context.Transactions.AddRange(newTransactions);
 
@@ -748,10 +731,12 @@ public class PayoutBatchService : IPayoutBatchService
         var totalRecords = transactions.Count;
         var successCount = transactions.Count(t => t.Status == "completed");
 
+        var totalAmount = transactions.Sum(t => t.Amount);
+
         return new PayoutBatchSummaryResponse
         {
             TotalRecords = totalRecords,
-            TotalAmount = batch.TotalAmount,
+            TotalAmount = totalAmount,
             SuccessCount = batch.SuccessCount,
             FailedCount = batch.FailedCount,
             PendingCount = batch.PendingCount,
