@@ -17,6 +17,12 @@ public class Transaction
     public decimal? NormalizationConfidence { get; set; }
     public int RetryCount { get; set; } = 0;
     public DateTime? ProcessedAt { get; set; }
+
+    // Payment provider tracking
+    public string? ProviderReference { get; set; }
+    public string? ProviderStatus { get; set; }
+    public decimal? Fee { get; set; }
+    public string? VerifiedAccountName { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>

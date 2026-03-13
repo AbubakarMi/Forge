@@ -125,6 +125,10 @@ export interface Transaction {
   retryCount: number
   processedAt: string | null
   createdAt: string
+  providerReference: string | null
+  providerStatus: string | null
+  fee: number | null
+  verifiedAccountName: string | null
 }
 
 export interface TransactionDetail extends Transaction {

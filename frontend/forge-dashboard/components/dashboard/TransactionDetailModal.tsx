@@ -120,8 +120,43 @@ export default function TransactionDetailModal({ transaction, onClose }: Props) 
               <DetailRow label="Currency">
                 <span className="uppercase">{transaction.currency}</span>
               </DetailRow>
+              {transaction.fee !== null && transaction.fee !== undefined && (
+                <DetailRow label="Provider Fee">
+                  <span className="text-amber-600 font-medium">{formatCurrency(transaction.fee, transaction.currency)}</span>
+                </DetailRow>
+              )}
             </div>
           </section>
+
+          {/* Provider Info */}
+          {(transaction.providerReference || transaction.providerStatus || transaction.verifiedAccountName) && (
+            <section>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Provider Info</h3>
+              <div className="bg-gray-50 rounded-lg px-4 py-1 divide-y divide-gray-200">
+                {transaction.providerReference && (
+                  <DetailRow label="Provider Reference">
+                    <span className="font-mono text-xs">{transaction.providerReference}</span>
+                  </DetailRow>
+                )}
+                {transaction.providerStatus && (
+                  <DetailRow label="Provider Status">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
+                      transaction.providerStatus === 'success' ? 'bg-green-50 text-green-700'
+                        : transaction.providerStatus === 'failed' ? 'bg-red-50 text-red-700'
+                        : 'bg-yellow-50 text-yellow-700'
+                    }`}>
+                      {transaction.providerStatus}
+                    </span>
+                  </DetailRow>
+                )}
+                {transaction.verifiedAccountName && (
+                  <DetailRow label="Verified Account Name">
+                    {transaction.verifiedAccountName}
+                  </DetailRow>
+                )}
+              </div>
+            </section>
+          )}
 
           {/* Status */}
           <section>

@@ -22,6 +22,8 @@ public class AppDbContext : DbContext
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<WebhookEndpoint> WebhookEndpoints => Set<WebhookEndpoint>();
     public DbSet<WebhookDelivery> WebhookDeliveries => Set<WebhookDelivery>();
+    public DbSet<Wallet> Wallets => Set<Wallet>();
+    public DbSet<WalletTransaction> WalletTransactions => Set<WalletTransaction>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -153,6 +155,10 @@ public class AppDbContext : DbContext
             entity.Property(t => t.AccountNumber).IsRequired().HasMaxLength(50);
             entity.Property(t => t.FailureReason).HasMaxLength(500);
             entity.Property(t => t.NormalizationConfidence).HasColumnType("numeric(5,4)");
+            entity.Property(t => t.ProviderReference).HasMaxLength(200);
+            entity.Property(t => t.ProviderStatus).HasMaxLength(50);
+            entity.Property(t => t.Fee).HasColumnType("numeric(18,2)");
+            entity.Property(t => t.VerifiedAccountName).HasMaxLength(200);
 
             entity.HasOne(t => t.PayoutBatch)
                   .WithMany(b => b.Transactions)
@@ -271,6 +277,46 @@ public class AppDbContext : DbContext
             entity.HasIndex(d => d.WebhookEndpointId);
             entity.HasIndex(d => d.CreatedAt);
             entity.HasIndex(d => d.NextRetryAt);
+        });
+
+        // ── Wallet ─────────────────────────────────────────────────────
+        modelBuilder.Entity<Wallet>(entity =>
+        {
+            entity.HasKey(w => w.Id);
+            entity.Property(w => w.Balance).HasColumnType("numeric(18,2)");
+            entity.Property(w => w.Currency).IsRequired().HasMaxLength(10).HasDefaultValue("NGN");
+
+            entity.HasOne(w => w.Organization)
+                  .WithMany()
+                  .HasForeignKey(w => w.OrganizationId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(w => w.OrganizationId).IsUnique();
+
+            entity.Property(w => w.RowVersion)
+                  .IsRowVersion();
+        });
+
+        // ── WalletTransaction ─────────────────────────────────────────
+        modelBuilder.Entity<WalletTransaction>(entity =>
+        {
+            entity.HasKey(wt => wt.Id);
+            entity.Property(wt => wt.Type).IsRequired().HasMaxLength(20);
+            entity.Property(wt => wt.Amount).HasColumnType("numeric(18,2)");
+            entity.Property(wt => wt.Reference).IsRequired().HasMaxLength(200);
+            entity.Property(wt => wt.Description).IsRequired().HasMaxLength(500);
+            entity.Property(wt => wt.BalanceBefore).HasColumnType("numeric(18,2)");
+            entity.Property(wt => wt.BalanceAfter).HasColumnType("numeric(18,2)");
+
+            entity.HasOne(wt => wt.Wallet)
+                  .WithMany(w => w.WalletTransactions)
+                  .HasForeignKey(wt => wt.WalletId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(wt => wt.WalletId);
+            entity.HasIndex(wt => wt.CreatedAt);
+            entity.HasIndex(wt => wt.Type);
+            entity.HasIndex(wt => wt.PayoutBatchId);
         });
 
         // ── Payout (legacy — will be removed in Task 8.1) ──────────────

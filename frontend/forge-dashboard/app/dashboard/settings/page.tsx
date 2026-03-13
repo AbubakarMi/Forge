@@ -137,6 +137,44 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* Payment Provider */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-1">Payment Provider</h2>
+        <p className="text-xs text-gray-500 mb-5">Your connected payment provider for processing payouts.</p>
+
+        <div className="flex items-center gap-4 bg-gray-50 rounded-lg p-4 border border-gray-200">
+          <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center flex-shrink-0">
+            <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold text-gray-900">Paystack</p>
+              <span className="px-2 py-0.5 bg-green-50 text-green-700 text-[10px] font-semibold rounded-full">Connected</span>
+            </div>
+            <p className="text-xs text-gray-500 mt-0.5">Nigerian payment provider for transfers and payouts</p>
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-500 mb-1">Secret Key</label>
+            <div className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500 font-mono">
+              sk_test_••••••••••••••••••••••••••••
+            </div>
+            <p className="text-xs text-gray-400 mt-1">Configured via environment. Contact admin to change.</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-500 mb-1">Environment</label>
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-1 bg-amber-50 text-amber-700 text-xs font-semibold rounded-lg border border-amber-200">Test Mode</span>
+              <span className="text-xs text-gray-400">Switch to live mode in production</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Save Button */}
       <div className="flex justify-end">
         <button

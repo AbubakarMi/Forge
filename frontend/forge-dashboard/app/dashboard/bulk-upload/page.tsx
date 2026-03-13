@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { payoutBatchService, CreateBatchResponse, BatchSummary } from '@/services/payoutBatchService'
+import { walletService, WalletBalance } from '@/services/walletService'
 import { PayoutBatchDetail, TransactionDetail } from '@/types'
 import StatusBadge from '@/components/ui/StatusBadge'
 import ConfirmModal from '@/components/ui/ConfirmModal'
@@ -53,6 +54,8 @@ export default function BulkUploadPage() {
   // Duplicate confirmation
   const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false)
   const [confirmingDuplicates, setConfirmingDuplicates] = useState(false)
+  // Wallet balance
+  const [walletBalance, setWalletBalance] = useState<WalletBalance | null>(null)
 
   const MAX_SIZE = 10 * 1024 * 1024
 
@@ -300,6 +303,7 @@ export default function BulkUploadPage() {
     setStep('create')
     setBatchName('')
     setBatchNameError('')
+    walletService.getBalance().then(setWalletBalance).catch(() => null)
   }
 
   const handleConfirmBatch = async () => {
@@ -809,6 +813,45 @@ export default function BulkUploadPage() {
                 </div>
               </div>
 
+              {/* Wallet Balance Check */}
+              {walletBalance && (
+                <div className={`rounded-lg p-4 mb-6 border ${
+                  walletBalance.balance >= validAmount
+                    ? 'bg-green-50 border-green-200'
+                    : 'bg-red-50 border-red-200'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <svg className={`w-4 h-4 ${walletBalance.balance >= validAmount ? 'text-green-600' : 'text-red-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                      </svg>
+                      <span className="text-xs font-medium text-gray-600">Wallet Balance</span>
+                    </div>
+                    <span className={`text-sm font-bold ${walletBalance.balance >= validAmount ? 'text-green-700' : 'text-red-700'}`}>
+                      {formatCurrency(walletBalance.balance)}
+                    </span>
+                  </div>
+                  {walletBalance.balance < validAmount && (
+                    <div className="mt-2">
+                      <p className="text-xs text-red-600 font-medium">
+                        Insufficient balance. You need {formatCurrency(validAmount - walletBalance.balance)} more to process this batch.
+                      </p>
+                      <button
+                        onClick={() => router.push('/dashboard/wallet')}
+                        className="mt-2 text-xs font-semibold text-red-700 underline hover:text-red-800"
+                      >
+                        Fund Wallet
+                      </button>
+                    </div>
+                  )}
+                  {walletBalance.balance >= validAmount && (
+                    <p className="text-xs text-green-600 mt-1">
+                      Remaining after payout: {formatCurrency(walletBalance.balance - validAmount)}
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Batch name input */}
               <div className="mb-5">
                 <label htmlFor="batchName" className="block text-sm font-medium text-gray-700 mb-2">
@@ -923,7 +966,7 @@ export default function BulkUploadPage() {
               <div className="flex items-center gap-3">
                 <button
                   onClick={handleConfirmBatch}
-                  disabled={confirming || !batchName.trim() || (paymentType !== 'immediate' && !scheduledDate)}
+                  disabled={confirming || !batchName.trim() || (paymentType !== 'immediate' && !scheduledDate) || (paymentType === 'immediate' && walletBalance !== null && walletBalance.balance < validAmount)}
                   className="flex-1 px-5 py-3 text-sm font-semibold text-white bg-forge-primary rounded-lg hover:bg-forge-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {confirming ? (

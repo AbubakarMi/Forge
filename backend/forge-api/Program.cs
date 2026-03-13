@@ -3,6 +3,7 @@ using ForgeApi.Configurations;
 using ForgeApi.Jobs;
 using ForgeApi.Middleware;
 using ForgeApi.Services;
+using ForgeApi.Services.PaymentProviders;
 using ForgeApi.Utils;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -19,6 +20,8 @@ builder.Services.Configure<SmtpSettings>(
     builder.Configuration.GetSection("SmtpSettings"));
 builder.Services.Configure<EncryptionSettings>(
     builder.Configuration.GetSection("EncryptionSettings"));
+builder.Services.Configure<PaystackSettings>(
+    builder.Configuration.GetSection("Paystack"));
 builder.Services.AddSingleton<IEncryptionService, EncryptionService>();
 
 // ── Database ─────────────────────────────────────────────────────────────────
@@ -117,6 +120,12 @@ builder.Services.AddScoped<ICurrentOrganizationProvider>(sp => sp.GetRequiredSer
 builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IWalletService, WalletService>();
+builder.Services.AddScoped<IAccountVerificationService, AccountVerificationService>();
+builder.Services.AddHttpClient<IPaymentProvider, PaystackProvider>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
 builder.Services.AddScoped<ITransactionProcessingService, TransactionProcessingService>();
 builder.Services.AddHttpClient<IWebhookService, WebhookService>(client =>
 {

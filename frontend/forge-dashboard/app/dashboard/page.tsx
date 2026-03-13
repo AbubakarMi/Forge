@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { transactionService } from '@/services/transactionService'
 import { payoutBatchService } from '@/services/payoutBatchService'
+import { walletService, WalletBalance } from '@/services/walletService'
 import { TransactionDetail, TransactionStats, PayoutBatch } from '@/types'
 import StatusBadge from '@/components/ui/StatusBadge'
 import TransactionDetailModal from '@/components/dashboard/TransactionDetailModal'
@@ -40,20 +41,23 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [selectedTx, setSelectedTx] = useState<TransactionDetail | null>(null)
+  const [walletBalance, setWalletBalance] = useState<WalletBalance | null>(null)
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true)
       setError('')
       try {
-        const [statsData, batchesData, txData] = await Promise.all([
+        const [statsData, batchesData, txData, walletData] = await Promise.all([
           transactionService.getTransactionStats(),
           payoutBatchService.getBatches({ pageSize: 6 }),
           transactionService.getTransactions({ pageSize: 10 }),
+          walletService.getBalance().catch(() => null),
         ])
         setStats(statsData)
         setRecentBatches(batchesData?.data ?? [])
         setRecentTransactions(txData?.data ?? [])
+        setWalletBalance(walletData)
       } catch {
         setError('Failed to load dashboard data.')
       } finally {
@@ -146,6 +150,40 @@ export default function DashboardPage() {
         <div className="bg-red-50 border border-red-200 text-red-700 px-5 py-3 rounded-xl text-sm font-medium">
           {error}
         </div>
+      )}
+
+      {/* Wallet Balance Banner */}
+      {walletBalance && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-r from-indigo-600 to-indigo-500 rounded-2xl p-5 flex items-center justify-between text-white"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-11 h-11 bg-white/20 rounded-xl flex items-center justify-center">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-white/70">Wallet Balance</p>
+              <p className="text-2xl font-extrabold tracking-tight">{formatNGN(walletBalance.balance)}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            {walletBalance.balance < 100000 && (
+              <span className="px-3 py-1.5 bg-amber-400/20 text-amber-100 rounded-lg text-xs font-semibold">
+                Low Balance
+              </span>
+            )}
+            <button
+              onClick={() => router.push('/dashboard/wallet')}
+              className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-semibold transition-colors"
+            >
+              Manage Wallet
+            </button>
+          </div>
+        </motion.div>
       )}
 
       {/* Stat Cards - 4 column grid */}
